@@ -600,6 +600,55 @@
     padding:8px;
     font-size:13px;
   }
+  .day-group{
+    margin-top:18px;
+  }
+  .day-group-header{
+    font-family:'Arial Black',Impact,sans-serif;
+    font-size:13px;
+    letter-spacing:0.5px;
+    color:var(--accent);
+    background:var(--panel2);
+    border-radius:8px;
+    padding:8px 12px;
+    margin-bottom:8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .day-group-count{
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+    font-weight:normal;
+  }
+  .arch-order{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .arch-order-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:6px;
+  }
+  .arch-order-person{
+    font-family:'Arial Black',Impact,sans-serif;
+    font-size:13px;
+  }
+  .arch-order-time{
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .arch-order-items{
+    font-family:'Courier New',monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    line-height:1.6;
+  }
 </style>
 </head>
 <body>
@@ -664,6 +713,7 @@
         <button id="tabWarehouseBtn" class="admin-tab-btn" type="button">Almac&eacute;n</button>
         <button id="tabReceiveBtn" class="admin-tab-btn" type="button">Recibir</button>
         <button id="tabRestockBtn" class="admin-tab-btn" type="button">Reposici&oacute;n</button>
+        <button id="tabOrdersBtn" class="admin-tab-btn" type="button">Pedidos</button>
       </div>
 
       <div id="adminCatalogTab">
@@ -751,6 +801,18 @@
         <div class="admin-actions">
           <button id="genRestockPdfBtn" class="btn-solid">Generar pedido de reposici&oacute;n</button>
           <button id="adminCloseBtn4" class="btn-solid">Cerrar</button>
+        </div>
+      </div>
+
+      <div id="adminOrdersTab" class="hidden">
+        <p class="label-row">Pedidos archivados, por d&iacute;a</p>
+        <div class="admin-note">Revisa aqu&iacute; todos los pedidos ya confirmados y archivados, agrupados por d&iacute;a, para detectar duplicados o revisar el hist&oacute;rico completo.</div>
+        <input id="ordersSearch" type="text" placeholder="Buscar por solicitante..." style="margin-top:10px;">
+        <div id="archivedOrdersList"></div>
+
+        <div class="admin-actions">
+          <button id="ordersRefreshBtn" class="btn-ghost">Actualizar</button>
+          <button id="adminCloseBtn5" class="btn-solid">Cerrar</button>
         </div>
       </div>
     </div>
@@ -1125,6 +1187,32 @@ async function addStockHistoryEntry(entry){
   await saveStockHistory(entries);
 }
 
+// ---- Pedidos archivados (registro permanente, por dia, para auditoria) ----
+const ARCHIVED_ORDERS_KEY = 'archived-orders';
+
+async function loadArchivedOrders(){
+  try{
+    const res = await window.storage.get(ARCHIVED_ORDERS_KEY, true);
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      if(Array.isArray(parsed)) return parsed;
+    }
+  }catch(e){ /* clave inexistente u error -> lista vacia */ }
+  return [];
+}
+async function saveArchivedOrders(list){
+  try{
+    await window.storage.set(ARCHIVED_ORDERS_KEY, JSON.stringify(list), true);
+  }catch(e){
+    console.error('No se pudo guardar el registro de pedidos archivados', e);
+  }
+}
+async function addArchivedOrder(order){
+  const list = await loadArchivedOrders();
+  list.push({ ...order, archivedAt: new Date().toISOString() });
+  await saveArchivedOrders(list);
+}
+
 // ---- Render productos (pedido) ----
 const listEl = document.getElementById('productList');
 function maxLabel(p){
@@ -1260,19 +1348,23 @@ function switchAdminTab(tab){
   const whTab = document.getElementById('adminWarehouseTab');
   const recvTab = document.getElementById('adminReceiveTab');
   const restockTab = document.getElementById('adminRestockTab');
+  const ordersTab = document.getElementById('adminOrdersTab');
   const catBtn = document.getElementById('tabCatalogBtn');
   const whBtn = document.getElementById('tabWarehouseBtn');
   const recvBtn = document.getElementById('tabReceiveBtn');
   const restockBtn = document.getElementById('tabRestockBtn');
+  const ordersBtn = document.getElementById('tabOrdersBtn');
 
   catTab.classList.add('hidden');
   whTab.classList.add('hidden');
   recvTab.classList.add('hidden');
   restockTab.classList.add('hidden');
+  ordersTab.classList.add('hidden');
   catBtn.classList.remove('active');
   whBtn.classList.remove('active');
   recvBtn.classList.remove('active');
   restockBtn.classList.remove('active');
+  ordersBtn.classList.remove('active');
 
   if(tab==='warehouse'){
     whTab.classList.remove('hidden'); whBtn.classList.add('active');
@@ -1284,6 +1376,9 @@ function switchAdminTab(tab){
   }else if(tab==='restock'){
     restockTab.classList.remove('hidden'); restockBtn.classList.add('active');
     initRestockDates();
+  }else if(tab==='orders'){
+    ordersTab.classList.remove('hidden'); ordersBtn.classList.add('active');
+    renderArchivedOrders();
   }else{
     catTab.classList.remove('hidden'); catBtn.classList.add('active');
   }
@@ -1292,8 +1387,10 @@ document.getElementById('tabCatalogBtn').addEventListener('click', ()=>switchAdm
 document.getElementById('tabWarehouseBtn').addEventListener('click', ()=>switchAdminTab('warehouse'));
 document.getElementById('tabReceiveBtn').addEventListener('click', ()=>switchAdminTab('receive'));
 document.getElementById('tabRestockBtn').addEventListener('click', ()=>switchAdminTab('restock'));
+document.getElementById('tabOrdersBtn').addEventListener('click', ()=>switchAdminTab('orders'));
 document.getElementById('warehouseRefreshBtn').addEventListener('click', renderWarehouseList);
 document.getElementById('adminCloseBtn3').addEventListener('click', closeAdmin);
+document.getElementById('adminCloseBtn5').addEventListener('click', closeAdmin);
 document.getElementById('adminCloseBtn4').addEventListener('click', closeAdmin);
 
 function renderAdminList(filter){
@@ -1618,6 +1715,8 @@ async function renderWarehouseList(preserveScroll){
           await saveCatalog();
           renderProducts();
           renderStockHistory();
+
+          await addArchivedOrder(order); // registro permanente para poder auditar por dia
 
           const fresh = await loadPendingOrders();
           const remaining = fresh.filter(x=>x.id!==order.id);
@@ -1977,6 +2076,81 @@ document.getElementById('genRestockPdfBtn').addEventListener('click', async ()=>
     printPDF(doc, fname);
   }
 });
+
+// ========== PEDIDOS ARCHIVADOS, AGRUPADOS POR DÍA (para auditoría) ==========
+function dayKey(iso){
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+function dayKeySortable(iso){
+  const d = new Date(iso);
+  return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtTimeOnly(iso){
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+async function renderArchivedOrders(filter){
+  const listEl = document.getElementById('archivedOrdersList');
+  listEl.innerHTML = '<div class="wh-empty">Cargando pedidos...</div>';
+  const orders = await loadArchivedOrders();
+
+  const q = (filter!=null ? filter : document.getElementById('ordersSearch').value).trim().toLowerCase();
+  const filtered = q ? orders.filter(o=>o.person.toLowerCase().includes(q)) : orders;
+
+  if(filtered.length===0){
+    listEl.innerHTML = '<div class="wh-empty">No hay pedidos archivados todavía.</div>';
+    return;
+  }
+
+  // agrupa por dia (segun fecha de creacion del pedido), dias mas recientes primero
+  const groups = new Map();
+  filtered.forEach(order=>{
+    const key = dayKey(order.createdAt);
+    if(!groups.has(key)) groups.set(key, { sortKey: dayKeySortable(order.createdAt), orders: [] });
+    groups.get(key).orders.push(order);
+  });
+
+  const sortedDays = [...groups.entries()].sort((a,b)=> b[1].sortKey.localeCompare(a[1].sortKey));
+
+  listEl.innerHTML = '';
+  sortedDays.forEach(([day, group])=>{
+    const dayOrders = group.orders.sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+
+    const dayWrap = document.createElement('div');
+    dayWrap.className = 'day-group';
+
+    const header = document.createElement('div');
+    header.className = 'day-group-header';
+    header.innerHTML = `<span>${day}</span><span class="day-group-count">${dayOrders.length} pedido(s)</span>`;
+    dayWrap.appendChild(header);
+
+    dayOrders.forEach(order=>{
+      const card = document.createElement('div');
+      card.className = 'arch-order';
+
+      const totalUnits = order.items.reduce((s,it)=>s + (it.deliveredQty||0), 0);
+      const itemsText = order.items.map(it=>`${it.name}: ${it.deliveredQty}`).join(' · ');
+
+      card.innerHTML = `
+        <div class="arch-order-head">
+          <span class="arch-order-person">${order.person}</span>
+          <span class="arch-order-time">${fmtTimeOnly(order.createdAt)} (pedido) → ${fmtTimeOnly(order.archivedAt)} (archivado)</span>
+        </div>
+        <div class="arch-order-items">${itemsText} — <b>${order.items.length} productos, ${totalUnits} unidades</b></div>
+      `;
+      dayWrap.appendChild(card);
+    });
+
+    listEl.appendChild(dayWrap);
+  });
+}
+
+document.getElementById('ordersSearch').addEventListener('input', e=>{
+  renderArchivedOrders(e.target.value);
+});
+document.getElementById('ordersRefreshBtn').addEventListener('click', ()=>renderArchivedOrders());
 
 // ---- Alta manual de stock ----
 document.getElementById('restockManualBtn').addEventListener('click', async ()=>{
