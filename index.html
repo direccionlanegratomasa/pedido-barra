@@ -23,6 +23,7 @@
     --radius:10px;
   }
   *{box-sizing:border-box;}
+  .hidden{display:none !important;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman',serif;}
   .app{max-width:720px;margin:0 auto;padding:0 0 140px 0;}
 
@@ -443,6 +444,32 @@
     color:var(--bg);
   }
 
+  .admin-subtabs{
+    display:flex;
+    gap:6px;
+    margin-bottom:18px;
+    padding-bottom:14px;
+    border-bottom:1px dashed var(--border);
+  }
+  .admin-subtab-btn{
+    font-family:'Courier New',monospace;
+    font-size:11px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    padding:7px 12px;
+    border-radius:999px;
+    cursor:pointer;
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text-dim);
+  }
+  .admin-subtab-btn.active{
+    background:var(--panel2);
+    border-color:var(--accent-dim);
+    color:var(--accent);
+    font-weight:bold;
+  }
+
   /* ---- Fila de catalogo con Max + Stock ---- */
   .admin-row{flex-wrap:wrap;}
   .admin-row-fields{
@@ -708,12 +735,21 @@
     </div>
 
     <div id="adminPanelView" class="hidden">
-      <div class="admin-tabs">
-        <button id="tabCatalogBtn" class="admin-tab-btn active" type="button">Cat&aacute;logo</button>
-        <button id="tabWarehouseBtn" class="admin-tab-btn" type="button">Almac&eacute;n</button>
-        <button id="tabReceiveBtn" class="admin-tab-btn" type="button">Recibir</button>
-        <button id="tabRestockBtn" class="admin-tab-btn" type="button">Reposici&oacute;n</button>
-        <button id="tabOrdersBtn" class="admin-tab-btn" type="button">Pedidos</button>
+      <div class="admin-tabs" id="primaryTabs">
+        <button id="tabCatalogBtn" class="admin-tab-btn active" type="button" data-primary="catalog">Cat&aacute;logo</button>
+        <button id="tabOrdersMainBtn" class="admin-tab-btn" type="button" data-primary="orders">Pedidos</button>
+        <button id="tabStockMainBtn" class="admin-tab-btn" type="button" data-primary="stock">Stock</button>
+      </div>
+
+      <div class="admin-subtabs hidden" id="ordersSubtabs">
+        <button id="subPendingBtn" class="admin-subtab-btn active" type="button" data-sub="pending">Pendientes</button>
+        <button id="subArchivedBtn" class="admin-subtab-btn" type="button" data-sub="archived">Archivados</button>
+      </div>
+
+      <div class="admin-subtabs hidden" id="stockSubtabs">
+        <button id="subReceiveBtn" class="admin-subtab-btn active" type="button" data-sub="receive">Recibir</button>
+        <button id="subMovementsBtn" class="admin-subtab-btn" type="button" data-sub="movements">Movimientos</button>
+        <button id="subRestockBtn" class="admin-subtab-btn" type="button" data-sub="restock">Reposici&oacute;n</button>
       </div>
 
       <div id="adminCatalogTab">
@@ -734,7 +770,6 @@
         <div class="admin-actions">
           <button id="printCatalogBtn" class="btn-ghost">Imprimir cat&aacute;logo</button>
           <button id="adminResetBtn" class="btn-ghost">Restablecer lista original</button>
-          <button id="adminCloseBtn" class="btn-solid">Cerrar</button>
         </div>
       </div>
 
@@ -744,7 +779,16 @@
         <div id="warehouseList"></div>
         <div class="admin-actions">
           <button id="warehouseRefreshBtn" class="btn-ghost">Actualizar</button>
-          <button id="adminCloseBtn2" class="btn-solid">Cerrar</button>
+        </div>
+      </div>
+
+      <div id="adminOrdersTab" class="hidden">
+        <p class="label-row">Pedidos archivados, por d&iacute;a</p>
+        <div class="admin-note">Revisa aqu&iacute; todos los pedidos ya confirmados y archivados, agrupados por d&iacute;a, para detectar duplicados o revisar el hist&oacute;rico completo.</div>
+        <input id="ordersSearch" type="text" placeholder="Buscar por solicitante..." style="margin-top:10px;">
+        <div id="archivedOrdersList"></div>
+        <div class="admin-actions">
+          <button id="ordersRefreshBtn" class="btn-ghost">Actualizar</button>
         </div>
       </div>
 
@@ -769,8 +813,10 @@
           <button id="albaranCancelBtn" class="btn-ghost">Descartar</button>
           <button id="albaranConfirmBtn" class="btn-solid">Confirmar recepci&oacute;n</button>
         </div>
+      </div>
 
-        <p class="label-row" style="margin-top:24px;">Hist&oacute;rico de movimientos de stock</p>
+      <div id="adminHistoryTab" class="hidden">
+        <p class="label-row">Hist&oacute;rico de movimientos de stock</p>
         <div class="admin-add-row">
           <input id="historySearch" type="text" placeholder="Buscar producto en el hist&oacute;rico..." style="flex:2;">
           <select id="historyTypeFilter" style="flex:1;padding:12px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);font-family:'Courier New',monospace;font-size:13px;">
@@ -780,10 +826,8 @@
           </select>
         </div>
         <div id="stockHistoryList" class="admin-list"></div>
-
-        <div class="admin-actions" style="margin-top:24px;">
+        <div class="admin-actions">
           <button id="printHistoryBtn" class="btn-ghost">Imprimir hist&oacute;rico</button>
-          <button id="adminCloseBtn3" class="btn-solid">Cerrar</button>
         </div>
       </div>
 
@@ -797,23 +841,13 @@
         </div>
         <div id="restockCalcNote" class="admin-note"></div>
         <div id="restockList" class="admin-list"></div>
-
         <div class="admin-actions">
           <button id="genRestockPdfBtn" class="btn-solid">Generar pedido de reposici&oacute;n</button>
-          <button id="adminCloseBtn4" class="btn-solid">Cerrar</button>
         </div>
       </div>
 
-      <div id="adminOrdersTab" class="hidden">
-        <p class="label-row">Pedidos archivados, por d&iacute;a</p>
-        <div class="admin-note">Revisa aqu&iacute; todos los pedidos ya confirmados y archivados, agrupados por d&iacute;a, para detectar duplicados o revisar el hist&oacute;rico completo.</div>
-        <input id="ordersSearch" type="text" placeholder="Buscar por solicitante..." style="margin-top:10px;">
-        <div id="archivedOrdersList"></div>
-
-        <div class="admin-actions">
-          <button id="ordersRefreshBtn" class="btn-ghost">Actualizar</button>
-          <button id="adminCloseBtn5" class="btn-solid">Cerrar</button>
-        </div>
+      <div class="admin-actions" style="margin-top:22px;border-top:1px solid var(--border);padding-top:16px;">
+        <button id="adminCloseBtn" class="btn-solid">Cerrar</button>
       </div>
     </div>
 
@@ -1321,7 +1355,6 @@ function closeAdmin(){
 document.getElementById('adminBtn').addEventListener('click', openAdmin);
 document.getElementById('adminCancelBtn').addEventListener('click', closeAdmin);
 document.getElementById('adminCloseBtn').addEventListener('click', closeAdmin);
-document.getElementById('adminCloseBtn2').addEventListener('click', closeAdmin);
 adminOverlay.addEventListener('click', (e)=>{ if(e.target===adminOverlay) closeAdmin(); });
 
 function tryAdminLogin(){
@@ -1338,60 +1371,76 @@ adminPass.addEventListener('keydown', e=>{ if(e.key==='Enter') tryAdminLogin(); 
 function showAdminPanel(){
   adminLockView.classList.add('hidden');
   adminPanelView.classList.remove('hidden');
-  switchAdminTab('catalog');
+  switchPrimaryTab('catalog');
   renderAdminList();
 }
 
-// ---- Pestañas del panel admin: Catálogo / Almacén / Recibir ----
-function switchAdminTab(tab){
-  const catTab = document.getElementById('adminCatalogTab');
-  const whTab = document.getElementById('adminWarehouseTab');
-  const recvTab = document.getElementById('adminReceiveTab');
-  const restockTab = document.getElementById('adminRestockTab');
-  const ordersTab = document.getElementById('adminOrdersTab');
-  const catBtn = document.getElementById('tabCatalogBtn');
-  const whBtn = document.getElementById('tabWarehouseBtn');
-  const recvBtn = document.getElementById('tabReceiveBtn');
-  const restockBtn = document.getElementById('tabRestockBtn');
-  const ordersBtn = document.getElementById('tabOrdersBtn');
+// ---- Navegacion del panel admin en dos niveles: secciones + sub-pestañas ----
+// Catalogo               (sin sub-pestañas)
+// Pedidos    -> Pendientes | Archivados
+// Stock      -> Recibir | Movimientos | Reposición
+const ADMIN_CONTENT_IDS = ['adminCatalogTab','adminWarehouseTab','adminOrdersTab','adminReceiveTab','adminHistoryTab','adminRestockTab'];
+const PRIMARY_BTN_IDS = { catalog:'tabCatalogBtn', orders:'tabOrdersMainBtn', stock:'tabStockMainBtn' };
+const SUB_CONFIG = {
+  orders: { containerId:'ordersSubtabs', default:'pending', subs:{
+    pending:  { contentId:'adminWarehouseTab', btnId:'subPendingBtn',  onShow: ()=>renderWarehouseList() },
+    archived: { contentId:'adminOrdersTab',    btnId:'subArchivedBtn', onShow: ()=>renderArchivedOrders() }
+  }},
+  stock: { containerId:'stockSubtabs', default:'receive', subs:{
+    receive:   { contentId:'adminReceiveTab', btnId:'subReceiveBtn',   onShow: ()=>refreshProductDatalist() },
+    movements: { contentId:'adminHistoryTab', btnId:'subMovementsBtn',onShow: ()=>renderStockHistory() },
+    restock:   { contentId:'adminRestockTab', btnId:'subRestockBtn',  onShow: ()=>initRestockDates() }
+  }}
+};
 
-  catTab.classList.add('hidden');
-  whTab.classList.add('hidden');
-  recvTab.classList.add('hidden');
-  restockTab.classList.add('hidden');
-  ordersTab.classList.add('hidden');
-  catBtn.classList.remove('active');
-  whBtn.classList.remove('active');
-  recvBtn.classList.remove('active');
-  restockBtn.classList.remove('active');
-  ordersBtn.classList.remove('active');
+let currentPrimaryTab = 'catalog';
 
-  if(tab==='warehouse'){
-    whTab.classList.remove('hidden'); whBtn.classList.add('active');
-    renderWarehouseList();
-  }else if(tab==='receive'){
-    recvTab.classList.remove('hidden'); recvBtn.classList.add('active');
-    refreshProductDatalist();
-    renderStockHistory();
-  }else if(tab==='restock'){
-    restockTab.classList.remove('hidden'); restockBtn.classList.add('active');
-    initRestockDates();
-  }else if(tab==='orders'){
-    ordersTab.classList.remove('hidden'); ordersBtn.classList.add('active');
-    renderArchivedOrders();
-  }else{
-    catTab.classList.remove('hidden'); catBtn.classList.add('active');
+function switchPrimaryTab(primary){
+  currentPrimaryTab = primary;
+
+  // resalta el boton principal activo
+  Object.values(PRIMARY_BTN_IDS).forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(PRIMARY_BTN_IDS[primary]).classList.add('active');
+
+  // oculta todos los paneles de contenido de entrada
+  ADMIN_CONTENT_IDS.forEach(id=>document.getElementById(id).classList.add('hidden'));
+
+  // oculta ambas barras de sub-pestañas por defecto
+  document.getElementById('ordersSubtabs').classList.add('hidden');
+  document.getElementById('stockSubtabs').classList.add('hidden');
+
+  if(primary==='catalog'){
+    document.getElementById('adminCatalogTab').classList.remove('hidden');
+    return;
   }
+
+  const cfg = SUB_CONFIG[primary];
+  document.getElementById(cfg.containerId).classList.remove('hidden');
+  switchSubTab(primary, cfg.default);
 }
-document.getElementById('tabCatalogBtn').addEventListener('click', ()=>switchAdminTab('catalog'));
-document.getElementById('tabWarehouseBtn').addEventListener('click', ()=>switchAdminTab('warehouse'));
-document.getElementById('tabReceiveBtn').addEventListener('click', ()=>switchAdminTab('receive'));
-document.getElementById('tabRestockBtn').addEventListener('click', ()=>switchAdminTab('restock'));
-document.getElementById('tabOrdersBtn').addEventListener('click', ()=>switchAdminTab('orders'));
+
+function switchSubTab(primary, sub){
+  const cfg = SUB_CONFIG[primary];
+  Object.entries(cfg.subs).forEach(([key, s])=>{
+    document.getElementById(s.btnId).classList.toggle('active', key===sub);
+  });
+  ADMIN_CONTENT_IDS.forEach(id=>document.getElementById(id).classList.add('hidden'));
+  const target = cfg.subs[sub];
+  document.getElementById(target.contentId).classList.remove('hidden');
+  target.onShow();
+}
+
+document.getElementById('tabCatalogBtn').addEventListener('click', ()=>switchPrimaryTab('catalog'));
+document.getElementById('tabOrdersMainBtn').addEventListener('click', ()=>switchPrimaryTab('orders'));
+document.getElementById('tabStockMainBtn').addEventListener('click', ()=>switchPrimaryTab('stock'));
+
+document.getElementById('subPendingBtn').addEventListener('click', ()=>switchSubTab('orders','pending'));
+document.getElementById('subArchivedBtn').addEventListener('click', ()=>switchSubTab('orders','archived'));
+document.getElementById('subReceiveBtn').addEventListener('click', ()=>switchSubTab('stock','receive'));
+document.getElementById('subMovementsBtn').addEventListener('click', ()=>switchSubTab('stock','movements'));
+document.getElementById('subRestockBtn').addEventListener('click', ()=>switchSubTab('stock','restock'));
+
 document.getElementById('warehouseRefreshBtn').addEventListener('click', renderWarehouseList);
-document.getElementById('adminCloseBtn3').addEventListener('click', closeAdmin);
-document.getElementById('adminCloseBtn5').addEventListener('click', closeAdmin);
-document.getElementById('adminCloseBtn4').addEventListener('click', closeAdmin);
 
 function renderAdminList(filter){
   adminList.innerHTML='';
