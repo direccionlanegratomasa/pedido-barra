@@ -1473,6 +1473,10 @@ function fmtOrderDate(iso){
   try{ return fmt(new Date(iso)); }catch(e){ return iso; }
 }
 
+// Evita doble clic / doble ejecucion al confirmar y archivar un pedido (lo que
+// descontaria el stock dos veces para el mismo pedido).
+const archivingOrderIds = new Set();
+
 async function renderWarehouseList(preserveScroll){
   const modal = document.getElementById('adminModal');
   const scrollY = (preserveScroll && modal) ? modal.scrollTop : null;
@@ -1583,36 +1587,46 @@ async function renderWarehouseList(preserveScroll){
       archiveBtn.style.marginTop = '10px';
       archiveBtn.textContent = 'Confirmar entrega y archivar';
       archiveBtn.addEventListener('click', async ()=>{
+        if(archivingOrderIds.has(order.id)) return; // ya se esta procesando, ignora clics repetidos
         if(!confirm(`¿Confirmar que el pedido de ${order.person} se entregó completo? Esto descontará el stock de cada producto y quedará registrado en el histórico.`)) return;
+        if(archivingOrderIds.has(order.id)) return; // por si se pulso otra vez mientras el confirm estaba abierto
 
-        // Solo AHORA, con el pedido totalmente atendido, se descuenta el stock
-        // real y se deja constancia en el historico — nunca antes, para no
-        // registrar salidas de pedidos que pudieran corregirse o eliminarse.
-        for(const item of order.items){
-          const prod = PRODUCTS.find(p=>p.name===item.name);
-          if(prod && prod.stock!=null){
-            const previousStock = prod.stock;
-            prod.stock = prod.stock - item.deliveredQty;
-            await addStockHistoryEntry({
-              type: 'salida',
-              product: prod.name,
-              qty: item.deliveredQty,
-              previousStock,
-              newStock: prod.stock,
-              method: 'entrega',
-              person: order.person
-            });
+        archivingOrderIds.add(order.id);
+        archiveBtn.disabled = true;
+        archiveBtn.textContent = 'Procesando...';
+
+        try{
+          // Solo AHORA, con el pedido totalmente atendido, se descuenta el stock
+          // real y se deja constancia en el historico — nunca antes, para no
+          // registrar salidas de pedidos que pudieran corregirse o eliminarse.
+          for(const item of order.items){
+            const prod = PRODUCTS.find(p=>p.name===item.name);
+            if(prod && prod.stock!=null){
+              const previousStock = prod.stock;
+              prod.stock = prod.stock - item.deliveredQty;
+              await addStockHistoryEntry({
+                type: 'salida',
+                product: prod.name,
+                qty: item.deliveredQty,
+                previousStock,
+                newStock: prod.stock,
+                method: 'entrega',
+                person: order.person
+              });
+            }
           }
-        }
-        await saveCatalog();
-        renderProducts();
-        renderStockHistory();
+          await saveCatalog();
+          renderProducts();
+          renderStockHistory();
 
-        const fresh = await loadPendingOrders();
-        const remaining = fresh.filter(x=>x.id!==order.id);
-        await savePendingOrders(remaining);
-        warehouseNote.textContent = `Pedido de ${order.person} confirmado, archivado y stock actualizado.`;
-        renderWarehouseList();
+          const fresh = await loadPendingOrders();
+          const remaining = fresh.filter(x=>x.id!==order.id);
+          await savePendingOrders(remaining);
+          warehouseNote.textContent = `Pedido de ${order.person} confirmado, archivado y stock actualizado.`;
+          renderWarehouseList();
+        }finally{
+          archivingOrderIds.delete(order.id);
+        }
       });
       card.appendChild(archiveBtn);
     }else{
