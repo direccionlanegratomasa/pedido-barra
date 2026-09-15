@@ -1069,15 +1069,35 @@ const MENAJE_ITEMS = [
   { name:"CUCHILLOS PEQUEÑOS (PUNTILLAS)", stock:1, max:1 }
 ];
 
+// Productos que el admin habia anadido manualmente al catalogo (vinos y otros)
+// y que se perdieron durante alguna de las migraciones grandes anteriores.
+// Se recuperan con el ULTIMO stock que aparece en el historico de movimientos
+// compartido — conviene revisarlo y ajustarlo a mano si no coincide con el
+// conteo fisico real, ya que pudo pasar tiempo desde el ultimo movimiento
+// registrado hasta que el producto desaparecio del catalogo.
+const RECOVERED_ITEMS = [
+  { name:"BAIGORRIA RIOJA", stock:3, max:null },
+  { name:"GODELIA GODELLO", stock:1, max:null },
+  { name:"MATAROMERAS RIOJA", stock:2, max:null },
+  { name:"MOET CHANDON BRUT", stock:4, max:null },
+  { name:"PAGO DE CARROVEJAS RIBERA", stock:2, max:null },
+  { name:"TEQUILA AÑEJO PADRE", stock:2, max:null },
+  { name:"TEQUILA BLANCO PADRECITO", stock:2, max:null },
+  { name:"TEQUILA REPOSADO PADRE", stock:2, max:null },
+  { name:"TRESOLMOS VERDEJO", stock:5, max:null }
+];
+
 // Combina bebidas + cristaleria + menaje para construir un catalogo completo
 // de fabrica (usado solo si no hay ningun catalogo guardado todavia).
 function buildFullDefaultCatalog(){
   const cristaleria = CRISTALERIA_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'cristaleria'}));
   const menaje = MENAJE_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'menaje'}));
+  const recovered = RECOVERED_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'bebida'}));
   return [
     ...DEFAULT_PRODUCTS.map(p=>({name:p.name, max:p.max, stock:p.stock, category:p.category})),
     ...cristaleria,
-    ...menaje
+    ...menaje,
+    ...recovered
   ];
 }
 
@@ -1164,11 +1184,11 @@ DEFAULT_PRODUCTS.forEach(p=>{
   }
 });
 
-const CATALOG_KEY = 'product-catalog';
+const CATALOG_KEY = 'product-catalog'; // clave antigua (bloque unico) usada solo como migracion
 const CATALOG_MAX_VERSION_KEY = 'product-catalog-max-version';
 const CATALOG_MAX_VERSION = 2; // subir este numero si se cargan nuevos maximos oficiales
 const CATALOG_ITEMS_VERSION_KEY = 'product-catalog-items-version';
-const CATALOG_ITEMS_VERSION = 1; // subir este numero si se anaden mas articulos nuevos de fabrica (ej. mas cristaleria/menaje)
+const CATALOG_ITEMS_VERSION = 2; // subir este numero si se anaden mas articulos nuevos de fabrica (ej. mas cristaleria/menaje/recuperados)
 
 // ---- Estado ----
 let selectedPerson = null;
@@ -1206,28 +1226,126 @@ function updateFormLock(){
   // por si el usuario cambia de solicitante teniendo el buscador con texto, no hace falta tocarlo
 }
 
-// ---- Carga / guardado del catalogo (persistente y compartido) ----
-async function loadCatalog(){
-  let catalog = null;
-  let existed = false;
-  try{
-    const res = await window.storage.get(CATALOG_KEY, true);
-    if(res && res.value){
-      catalog = JSON.parse(res.value);
-      existed = true;
-    }
-  }catch(e){
-    catalog = null; // clave inexistente u error -> usamos el catalogo por defecto
-  }
-  if(!Array.isArray(catalog) || catalog.length===0){
-    catalog = buildFullDefaultCatalog();
-    existed = false;
-  }
+// ---- Almacenamiento del catalogo: UN DOCUMENTO POR PRODUCTO ----
+// Antes el catalogo entero se guardaba como un unico bloque de texto: si dos
+// dispositivos guardaban casi a la vez, el ultimo en escribir podia borrar
+// sin querer los cambios del otro (asi aparecieron saltos de stock sin
+// explicacion). Ahora cada producto vive en su propio documento de Firestore,
+// y las entradas/salidas de stock usan incrementos ATOMICOS: dos moviles
+// pueden sumar/restar stock del mismo producto casi a la vez sin que ninguno
+// de los dos cambios se pierda.
+const PRODUCTS_COLLECTION = 'pedido-barra-products';
 
-  // Si ya habia un catalogo guardado de una version anterior, rellenamos los
-  // maximos oficiales nuevos SOLO en los productos que aun no tenian maximo
-  // definido (para no pisar personalizaciones hechas desde el panel de Admin).
-  if(existed){
+function productDocId(name){
+  return String(name).toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'')
+    .slice(0,140) || ('producto-' + Date.now());
+}
+
+// Respaldo en memoria por si Firebase no esta disponible en este momento.
+const memoryProducts = new Map();
+
+async function fsGetAllProducts(){
+  if(!db) return [...memoryProducts.values()];
+  try{
+    const snap = await db.collection(PRODUCTS_COLLECTION).get();
+    return snap.docs.map(d=>d.data());
+  }catch(e){
+    console.error('Error leyendo productos', e);
+    return [...memoryProducts.values()];
+  }
+}
+
+async function fsSetProduct(product){
+  const id = productDocId(product.name);
+  memoryProducts.set(id, product);
+  if(!db) return;
+  try{ await db.collection(PRODUCTS_COLLECTION).doc(id).set(product); }
+  catch(e){ console.error('Error guardando producto', product.name, e); }
+}
+
+async function fsUpdateProductFields(name, fields){
+  const id = productDocId(name);
+  const current = memoryProducts.get(id) || {name};
+  memoryProducts.set(id, {...current, ...fields});
+  if(!db) return;
+  try{ await db.collection(PRODUCTS_COLLECTION).doc(id).set(fields, {merge:true}); }
+  catch(e){ console.error('Error actualizando producto', name, e); }
+}
+
+// Suma o resta stock de forma ATOMICA contra el servidor. Devuelve el stock
+// resultante ya actualizado, o null si no se pudo confirmar (se usa un
+// calculo local de respaldo en ese caso).
+async function fsIncrementProductStock(name, delta){
+  const id = productDocId(name);
+  if(!db){
+    const current = memoryProducts.get(id) || {name, stock:0};
+    const newStock = (current.stock||0) + delta;
+    memoryProducts.set(id, {...current, stock:newStock});
+    return newStock;
+  }
+  try{
+    const ref = db.collection(PRODUCTS_COLLECTION).doc(id);
+    await ref.set({ stock: firebase.firestore.FieldValue.increment(delta) }, {merge:true});
+    const snap = await ref.get();
+    return snap.exists ? snap.data().stock : null;
+  }catch(e){
+    console.error('Error incrementando stock', name, e);
+    return null;
+  }
+}
+
+async function fsDeleteProduct(name){
+  const id = productDocId(name);
+  memoryProducts.delete(id);
+  if(!db) return;
+  try{ await db.collection(PRODUCTS_COLLECTION).doc(id).delete(); }
+  catch(e){ console.error('Error eliminando producto', name, e); }
+}
+
+async function fsDeleteAllProducts(){
+  memoryProducts.clear();
+  if(!db) return;
+  try{
+    const snap = await db.collection(PRODUCTS_COLLECTION).get();
+    const batch = db.batch();
+    snap.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+  }catch(e){ console.error('Error vaciando catalogo', e); }
+}
+
+async function loadCatalog(){
+  let products = await fsGetAllProducts();
+
+  if(!Array.isArray(products) || products.length===0){
+    // Catalogo vacio: intenta migrar el bloque antiguo (si existia de una
+    // version previa de la app) antes de sembrar el catalogo de fabrica.
+    let legacy = null;
+    try{
+      const res = await window.storage.get(CATALOG_KEY, true);
+      if(res && res.value) legacy = JSON.parse(res.value);
+    }catch(e){ legacy = null; }
+
+    const seed = (Array.isArray(legacy) && legacy.length>0) ? legacy : buildFullDefaultCatalog();
+    for(const p of seed){
+      await fsSetProduct({
+        name:p.name,
+        max:(p.max===undefined?null:p.max),
+        stock:(p.stock===undefined?null:p.stock),
+        category:(p.category||DEFAULT_CATEGORY)
+      });
+    }
+    products = await fsGetAllProducts();
+
+    try{
+      await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true);
+      await window.storage.set(CATALOG_ITEMS_VERSION_KEY, String(CATALOG_ITEMS_VERSION), true);
+    }catch(e){}
+  }else{
+    // Rellena maximos oficiales nuevos SOLO donde falten, sin pisar
+    // personalizaciones hechas desde el panel de Admin.
     let storedVersion = 0;
     try{
       const vRes = await window.storage.get(CATALOG_MAX_VERSION_KEY, true);
@@ -1235,22 +1353,17 @@ async function loadCatalog(){
     }catch(e){ storedVersion = 0; }
 
     if(storedVersion < CATALOG_MAX_VERSION){
-      let changed = false;
-      catalog.forEach(p=>{
+      for(const p of products){
         if((p.max===null || p.max===undefined) && Object.prototype.hasOwnProperty.call(OFFICIAL_MAX, p.name)){
           p.max = OFFICIAL_MAX[p.name];
-          changed = true;
+          await fsUpdateProductFields(p.name, { max: p.max });
         }
-      });
-      try{
-        if(changed) await window.storage.set(CATALOG_KEY, JSON.stringify(catalog), true);
-        await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true);
-      }catch(e){ console.error('No se pudo guardar la actualizacion de maximos', e); }
+      }
+      try{ await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true); }catch(e){}
     }
 
-    // Anade los articulos nuevos de Cristaleria y Menaje al catalogo ya
-    // existente, SOLO si aun no estan (por nombre), sin tocar nada de lo que
-    // ya tengas configurado en Bebidas ni en articulos que ya hubieras anadido.
+    // Anade los articulos nuevos de Cristaleria y Menaje que aun no existan
+    // (por nombre), sin tocar nada de lo que ya tengas configurado.
     let itemsVersion = 0;
     try{
       const iRes = await window.storage.get(CATALOG_ITEMS_VERSION_KEY, true);
@@ -1258,44 +1371,30 @@ async function loadCatalog(){
     }catch(e){ itemsVersion = 0; }
 
     if(itemsVersion < CATALOG_ITEMS_VERSION){
-      const existingNames = new Set(catalog.map(p=>p.name.toLowerCase()));
+      const existingNames = new Set(products.map(p=>p.name.toLowerCase()));
       const newItems = [
         ...CRISTALERIA_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'cristaleria'})),
-        ...MENAJE_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'menaje'}))
+        ...MENAJE_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'menaje'})),
+        ...RECOVERED_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'bebida'}))
       ].filter(it=>!existingNames.has(it.name.toLowerCase()));
 
-      if(newItems.length){
-        catalog.push(...newItems);
-        try{ await window.storage.set(CATALOG_KEY, JSON.stringify(catalog), true); }catch(e){}
+      for(const it of newItems){
+        await fsSetProduct(it);
+        products.push(it);
       }
       try{ await window.storage.set(CATALOG_ITEMS_VERSION_KEY, String(CATALOG_ITEMS_VERSION), true); }catch(e){}
     }
-  }else{
-    try{
-      await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true);
-      await window.storage.set(CATALOG_ITEMS_VERSION_KEY, String(CATALOG_ITEMS_VERSION), true);
-    }catch(e){}
   }
 
   // Catalogos guardados antes de que existieran las categorias no tienen ese
   // campo: los tratamos como "Bebidas" (categoria por defecto) sin tocar nada mas.
-  PRODUCTS = catalog.map(p=>({
+  PRODUCTS = products.map(p=>({
     name:p.name,
     max:(p.max===undefined?null:p.max),
     stock:(p.stock===undefined?null:p.stock),
     category:(p.category||DEFAULT_CATEGORY),
     qty:0
   }));
-}
-
-async function saveCatalog(){
-  const toSave = PRODUCTS.map(p=>({name:p.name, max:p.max, stock:p.stock, category:p.category}));
-  try{
-    const result = await window.storage.set(CATALOG_KEY, JSON.stringify(toSave), true);
-    if(!result){ console.error('No se pudo guardar el catalogo'); }
-  }catch(e){
-    console.error('Error guardando catalogo', e);
-  }
 }
 
 // ---- Pedidos pendientes de entrega (cola compartida para Almacen) ----
@@ -1634,7 +1733,7 @@ function renderAdminList(filter){
     });
     catSelect.addEventListener('change', async ()=>{
       p.category = catSelect.value;
-      await saveCatalog();
+      await fsUpdateProductFields(p.name, { category: p.category });
       renderProducts();
       renderCategoryTabs();
       renderAdminList();
@@ -1654,7 +1753,7 @@ function renderAdminList(filter){
     maxInput.addEventListener('change', async ()=>{
       const v = maxInput.value==='' ? null : Math.max(0, parseInt(maxInput.value,10)||0);
       p.max = v;
-      await saveCatalog();
+      await fsUpdateProductFields(p.name, { max: v });
       renderProducts();
       adminSaveNote.textContent = `Guardado: ${p.name} · máximo ${v==null?'sin definir':v}`;
     });
@@ -1675,7 +1774,10 @@ function renderAdminList(filter){
       const v = stockInput.value==='' ? null : (parseInt(stockInput.value,10)||0);
       p.stock = v;
       stockInput.classList.toggle('stock-low', v!=null && v<=0);
-      await saveCatalog();
+      // Edicion manual directa: sobreescribe el valor (a diferencia de las
+      // entradas/salidas, que usan incrementos atomicos). Es un ajuste
+      // explicito del admin, no un movimiento de mercancia.
+      await fsUpdateProductFields(p.name, { stock: v });
       renderProducts();
       adminSaveNote.textContent = `Guardado: ${p.name} · stock ${v==null?'sin controlar':v}`;
     });
@@ -1689,7 +1791,7 @@ function renderAdminList(filter){
     delBtn.addEventListener('click', async ()=>{
       if(!confirm(`¿Eliminar "${p.name}" del catálogo?`)) return;
       PRODUCTS.splice(idx,1);
-      await saveCatalog();
+      await fsDeleteProduct(p.name);
       renderProducts();
       renderAdminList();
       adminSaveNote.textContent = `Eliminado: ${p.name}`;
@@ -1752,7 +1854,7 @@ document.getElementById('addProdBtn').addEventListener('click', async ()=>{
   const max = maxInput.value==='' ? null : Math.max(0, parseInt(maxInput.value,10)||0);
   const stock = stockInput.value==='' ? null : (parseInt(stockInput.value,10)||0);
   PRODUCTS.push({name, max, stock, category, qty:0});
-  await saveCatalog();
+  await fsSetProduct({name, max, stock, category});
   renderProducts();
   renderCategoryTabs();
   renderAdminList();
@@ -1762,8 +1864,10 @@ document.getElementById('addProdBtn').addEventListener('click', async ()=>{
 
 document.getElementById('adminResetBtn').addEventListener('click', async ()=>{
   if(!confirm('Esto restablece la lista original de productos (se perderán los cambios). ¿Continuar?')) return;
-  PRODUCTS = buildFullDefaultCatalog().map(p=>({...p, qty:0}));
-  await saveCatalog();
+  await fsDeleteAllProducts();
+  const fresh = buildFullDefaultCatalog();
+  for(const p of fresh){ await fsSetProduct(p); }
+  PRODUCTS = fresh.map(p=>({...p, qty:0}));
   renderProducts();
   renderCategoryTabs();
   renderAdminList();
@@ -1984,23 +2088,31 @@ async function renderWarehouseList(preserveScroll){
           // Solo AHORA, con el pedido totalmente atendido, se descuenta el stock
           // real y se deja constancia en el historico — nunca antes, para no
           // registrar salidas de pedidos que pudieran corregirse o eliminarse.
+          // IMPORTANTE: usamos un incremento atomico contra el servidor (no
+          // "leo el numero, resto, guardo el numero") para que si otro
+          // dispositivo esta tocando el mismo producto casi a la vez, ningun
+          // cambio se pierda ni se sobreescriba por accidente.
           for(const item of order.items){
             const prod = PRODUCTS.find(p=>p.name===item.name);
             if(prod && prod.stock!=null){
-              const previousStock = prod.stock;
-              prod.stock = prod.stock - item.deliveredQty;
+              const newStock = await fsIncrementProductStock(prod.name, -item.deliveredQty);
+              // Derivamos el "antes" a partir del valor real posterior (atomico),
+              // no de la copia local, para que el historico sea siempre exacto
+              // aunque este dispositivo tuviera un numero desactualizado.
+              const resolvedNewStock = (newStock!=null) ? newStock : (prod.stock - item.deliveredQty);
+              const previousStock = resolvedNewStock + item.deliveredQty;
+              prod.stock = resolvedNewStock;
               await addStockHistoryEntry({
                 type: 'salida',
                 product: prod.name,
                 qty: item.deliveredQty,
                 previousStock,
-                newStock: prod.stock,
+                newStock: resolvedNewStock,
                 method: 'entrega',
                 person: order.person
               });
             }
           }
-          await saveCatalog();
           renderProducts();
           renderStockHistory();
 
@@ -2454,9 +2566,10 @@ document.getElementById('restockManualBtn').addEventListener('click', async ()=>
   const prod = PRODUCTS.find(p=>p.name.toLowerCase()===name.toLowerCase());
   if(!prod){ note.textContent = `"${name}" no está en el catálogo. Añádelo primero desde la pestaña Catálogo.`; return; }
 
-  const previousStock = prod.stock==null ? 0 : prod.stock;
-  prod.stock = previousStock + qty;
-  await saveCatalog();
+  const newStock = await fsIncrementProductStock(prod.name, qty);
+  const resolvedNewStock = (newStock!=null) ? newStock : ((prod.stock==null?0:prod.stock) + qty);
+  const previousStock = resolvedNewStock - qty;
+  prod.stock = resolvedNewStock;
   renderProducts();
 
   await addStockHistoryEntry({
@@ -2648,12 +2761,15 @@ document.getElementById('albaranConfirmBtn').addEventListener('click', async ()=
   let applied = 0, skipped = 0;
   const newHistoryEntries = [];
 
-  albaranReviewItems.forEach(item=>{
-    if(!item.matched || item.qty<=0){ skipped++; return; }
+  for(const item of albaranReviewItems){
+    if(!item.matched || item.qty<=0){ skipped++; continue; }
     const prod = PRODUCTS.find(p=>p.name===item.matched);
-    if(!prod){ skipped++; return; }
-    const previousStock = prod.stock==null ? 0 : prod.stock;
-    prod.stock = previousStock + item.qty;
+    if(!prod){ skipped++; continue; }
+
+    const newStock = await fsIncrementProductStock(prod.name, item.qty);
+    const resolvedNewStock = (newStock!=null) ? newStock : ((prod.stock==null?0:prod.stock) + item.qty);
+    const previousStock = resolvedNewStock - item.qty;
+    prod.stock = resolvedNewStock;
     applied++;
     newHistoryEntries.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
@@ -2662,12 +2778,11 @@ document.getElementById('albaranConfirmBtn').addEventListener('click', async ()=
       product: prod.name,
       qty: item.qty,
       previousStock,
-      newStock: prod.stock,
+      newStock: resolvedNewStock,
       method: 'albaran'
     });
-  });
+  }
 
-  await saveCatalog();
   renderProducts();
 
   if(newHistoryEntries.length){
