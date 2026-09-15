@@ -1188,7 +1188,7 @@ const CATALOG_KEY = 'product-catalog'; // clave antigua (bloque unico) usada sol
 const CATALOG_MAX_VERSION_KEY = 'product-catalog-max-version';
 const CATALOG_MAX_VERSION = 2; // subir este numero si se cargan nuevos maximos oficiales
 const CATALOG_ITEMS_VERSION_KEY = 'product-catalog-items-version';
-const CATALOG_ITEMS_VERSION = 2; // subir este numero si se anaden mas articulos nuevos de fabrica (ej. mas cristaleria/menaje/recuperados)
+const CATALOG_ITEMS_VERSION = 3; // subir este numero si se anaden mas articulos nuevos de fabrica (ej. mas cristaleria/menaje/recuperados)
 
 // ---- Estado ----
 let selectedPerson = null;
@@ -1338,52 +1338,53 @@ async function loadCatalog(){
       });
     }
     products = await fsGetAllProducts();
+    // OJO: seguimos abajo con las comprobaciones de version (maximos oficiales
+    // y articulos nuevos) sobre este catalogo recien migrado — NO las saltamos,
+    // porque si veniamos de un bloque antiguo, ese bloque puede ser anterior a
+    // Cristaleria/Menaje/Recuperados y le faltarian esos articulos.
+  }
 
-    try{
-      await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true);
-      await window.storage.set(CATALOG_ITEMS_VERSION_KEY, String(CATALOG_ITEMS_VERSION), true);
-    }catch(e){}
-  }else{
-    // Rellena maximos oficiales nuevos SOLO donde falten, sin pisar
-    // personalizaciones hechas desde el panel de Admin.
-    let storedVersion = 0;
-    try{
-      const vRes = await window.storage.get(CATALOG_MAX_VERSION_KEY, true);
-      if(vRes && vRes.value) storedVersion = parseInt(vRes.value,10) || 0;
-    }catch(e){ storedVersion = 0; }
+  // Rellena maximos oficiales nuevos SOLO donde falten, sin pisar
+  // personalizaciones hechas desde el panel de Admin. Se comprueba siempre,
+  // tanto si el catalogo ya existia como si se acaba de migrar/sembrar.
+  let storedVersion = 0;
+  try{
+    const vRes = await window.storage.get(CATALOG_MAX_VERSION_KEY, true);
+    if(vRes && vRes.value) storedVersion = parseInt(vRes.value,10) || 0;
+  }catch(e){ storedVersion = 0; }
 
-    if(storedVersion < CATALOG_MAX_VERSION){
-      for(const p of products){
-        if((p.max===null || p.max===undefined) && Object.prototype.hasOwnProperty.call(OFFICIAL_MAX, p.name)){
-          p.max = OFFICIAL_MAX[p.name];
-          await fsUpdateProductFields(p.name, { max: p.max });
-        }
+  if(storedVersion < CATALOG_MAX_VERSION){
+    for(const p of products){
+      if((p.max===null || p.max===undefined) && Object.prototype.hasOwnProperty.call(OFFICIAL_MAX, p.name)){
+        p.max = OFFICIAL_MAX[p.name];
+        await fsUpdateProductFields(p.name, { max: p.max });
       }
-      try{ await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true); }catch(e){}
     }
+    try{ await window.storage.set(CATALOG_MAX_VERSION_KEY, String(CATALOG_MAX_VERSION), true); }catch(e){}
+  }
 
-    // Anade los articulos nuevos de Cristaleria y Menaje que aun no existan
-    // (por nombre), sin tocar nada de lo que ya tengas configurado.
-    let itemsVersion = 0;
-    try{
-      const iRes = await window.storage.get(CATALOG_ITEMS_VERSION_KEY, true);
-      if(iRes && iRes.value) itemsVersion = parseInt(iRes.value,10) || 0;
-    }catch(e){ itemsVersion = 0; }
+  // Anade los articulos nuevos (Cristaleria, Menaje, Recuperados...) que aun
+  // no existan por nombre, sin tocar nada de lo que ya tengas configurado.
+  // Tambien se comprueba siempre, por el mismo motivo de arriba.
+  let itemsVersion = 0;
+  try{
+    const iRes = await window.storage.get(CATALOG_ITEMS_VERSION_KEY, true);
+    if(iRes && iRes.value) itemsVersion = parseInt(iRes.value,10) || 0;
+  }catch(e){ itemsVersion = 0; }
 
-    if(itemsVersion < CATALOG_ITEMS_VERSION){
-      const existingNames = new Set(products.map(p=>p.name.toLowerCase()));
-      const newItems = [
-        ...CRISTALERIA_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'cristaleria'})),
-        ...MENAJE_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'menaje'})),
-        ...RECOVERED_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'bebida'}))
-      ].filter(it=>!existingNames.has(it.name.toLowerCase()));
+  if(itemsVersion < CATALOG_ITEMS_VERSION){
+    const existingNames = new Set(products.map(p=>p.name.toLowerCase()));
+    const newItems = [
+      ...CRISTALERIA_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'cristaleria'})),
+      ...MENAJE_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'menaje'})),
+      ...RECOVERED_ITEMS.map(it=>({name:it.name, max:it.max, stock:it.stock, category:'bebida'}))
+    ].filter(it=>!existingNames.has(it.name.toLowerCase()));
 
-      for(const it of newItems){
-        await fsSetProduct(it);
-        products.push(it);
-      }
-      try{ await window.storage.set(CATALOG_ITEMS_VERSION_KEY, String(CATALOG_ITEMS_VERSION), true); }catch(e){}
+    for(const it of newItems){
+      await fsSetProduct(it);
+      products.push(it);
     }
+    try{ await window.storage.set(CATALOG_ITEMS_VERSION_KEY, String(CATALOG_ITEMS_VERSION), true); }catch(e){}
   }
 
   // Catalogos guardados antes de que existieran las categorias no tienen ese
