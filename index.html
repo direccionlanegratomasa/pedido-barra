@@ -1084,7 +1084,11 @@ const RECOVERED_ITEMS = [
   { name:"TEQUILA AÑEJO PADRE", stock:2, max:null },
   { name:"TEQUILA BLANCO PADRECITO", stock:2, max:null },
   { name:"TEQUILA REPOSADO PADRE", stock:2, max:null },
-  { name:"TRESOLMOS VERDEJO", stock:5, max:null }
+  { name:"TRESOLMOS VERDEJO", stock:5, max:null },
+  // Sin datos de stock previos (no aparecen en el historico compartido) —
+  // se dan de alta "sin controlar", a ajustar a mano en Catalogo.
+  { name:"OBALO ROSADO", stock:null, max:null },
+  { name:"CARMELO ROMERO RIBERA", stock:null, max:null }
 ];
 
 // Combina bebidas + cristaleria + menaje para construir un catalogo completo
@@ -1188,7 +1192,7 @@ const CATALOG_KEY = 'product-catalog'; // clave antigua (bloque unico) usada sol
 const CATALOG_MAX_VERSION_KEY = 'product-catalog-max-version';
 const CATALOG_MAX_VERSION = 2; // subir este numero si se cargan nuevos maximos oficiales
 const CATALOG_ITEMS_VERSION_KEY = 'product-catalog-items-version';
-const CATALOG_ITEMS_VERSION = 3; // subir este numero si se anaden mas articulos nuevos de fabrica (ej. mas cristaleria/menaje/recuperados)
+const CATALOG_ITEMS_VERSION = 4; // subir este numero si se anaden mas articulos nuevos de fabrica (ej. mas cristaleria/menaje/recuperados)
 
 // ---- Estado ----
 let selectedPerson = null;
