@@ -1845,26 +1845,32 @@ function populateCategorySelects(){
 populateCategorySelects();
 
 document.getElementById('addProdBtn').addEventListener('click', async ()=>{
-  const nameInput = document.getElementById('newProdName');
-  const categorySelect = document.getElementById('newProdCategory');
-  const maxInput = document.getElementById('newProdMax');
-  const stockInput = document.getElementById('newProdStock');
-  const name = nameInput.value.trim().toUpperCase();
-  if(!name){ adminSaveNote.textContent='Escribe un nombre de producto.'; return; }
-  if(PRODUCTS.some(p=>p.name.toLowerCase()===name.toLowerCase())){
-    adminSaveNote.textContent = `"${name}" ya está en el catálogo.`;
-    return;
+  try{
+    const nameInput = document.getElementById('newProdName');
+    const categorySelect = document.getElementById('newProdCategory');
+    const maxInput = document.getElementById('newProdMax');
+    const stockInput = document.getElementById('newProdStock');
+    const name = nameInput.value.trim().toUpperCase();
+    if(!name){ adminSaveNote.textContent='Escribe un nombre de producto.'; return; }
+    if(PRODUCTS.some(p=>p.name.toLowerCase()===name.toLowerCase())){
+      adminSaveNote.textContent = `"${name}" ya está en el catálogo.`;
+      return;
+    }
+    const category = categorySelect.value || DEFAULT_CATEGORY;
+    const max = maxInput.value==='' ? null : Math.max(0, parseInt(maxInput.value,10)||0);
+    const stock = stockInput.value==='' ? null : (parseInt(stockInput.value,10)||0);
+    PRODUCTS.push({name, max, stock, category, qty:0});
+    await fsSetProduct({name, max, stock, category});
+    renderProducts();
+    renderCategoryTabs();
+    renderAdminList();
+    nameInput.value=''; maxInput.value=''; stockInput.value='';
+    adminSaveNote.textContent = `Añadido: ${name} (${categoryLabel(category)})`;
+  }catch(err){
+    console.error('Error al añadir producto', err);
+    adminSaveNote.textContent = `Error al añadir: ${err && err.message ? err.message : err}`;
+    adminSaveNote.style.color = 'var(--minus)';
   }
-  const category = categorySelect.value || DEFAULT_CATEGORY;
-  const max = maxInput.value==='' ? null : Math.max(0, parseInt(maxInput.value,10)||0);
-  const stock = stockInput.value==='' ? null : (parseInt(stockInput.value,10)||0);
-  PRODUCTS.push({name, max, stock, category, qty:0});
-  await fsSetProduct({name, max, stock, category});
-  renderProducts();
-  renderCategoryTabs();
-  renderAdminList();
-  nameInput.value=''; maxInput.value=''; stockInput.value='';
-  adminSaveNote.textContent = `Añadido: ${name} (${categoryLabel(category)})`;
 });
 
 document.getElementById('adminResetBtn').addEventListener('click', async ()=>{
