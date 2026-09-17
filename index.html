@@ -408,9 +408,11 @@
     display:flex;
     gap:8px;
     align-items:flex-start;
+    flex-wrap:wrap;
   }
-  .admin-add-row input[type="text"]{flex:2;}
-  .admin-add-row input[type="number"]{flex:1;}
+  .admin-add-row input[type="text"]{flex:2 1 150px; min-width:120px;}
+  .admin-add-row input[type="number"]{flex:1 1 90px; min-width:70px;}
+  .admin-add-row select{flex:1 1 130px; min-width:110px;}
   .admin-list{
     max-height:38vh;
     overflow-y:auto;
