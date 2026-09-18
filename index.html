@@ -1254,13 +1254,22 @@ function productDocId(name){
 const memoryProducts = new Map();
 
 async function fsGetAllProducts(){
-  if(!db) return [...memoryProducts.values()];
+  // Filtramos aqui cualquier documento incompleto (sin nombre valido), que
+  // podria haber quedado mal guardado por algun fallo puntual — asi nunca
+  // llega a romper el resto de la lista de productos en pantalla.
+  const isValid = p => p && typeof p.name === 'string' && p.name.trim().length>0;
+  if(!db) return [...memoryProducts.values()].filter(isValid);
   try{
     const snap = await db.collection(PRODUCTS_COLLECTION).get();
-    return snap.docs.map(d=>d.data());
+    const all = snap.docs.map(d=>d.data());
+    const valid = all.filter(isValid);
+    if(valid.length !== all.length){
+      console.warn(`Se ignoraron ${all.length - valid.length} producto(s) con datos incompletos (sin nombre).`);
+    }
+    return valid;
   }catch(e){
     console.error('Error leyendo productos', e);
-    return [...memoryProducts.values()];
+    return [...memoryProducts.values()].filter(isValid);
   }
 }
 
@@ -1521,41 +1530,47 @@ function stockLabel(p){
 function renderProducts(){
   listEl.innerHTML = '';
   PRODUCTS.filter(p=>(p.category||DEFAULT_CATEGORY)===currentCategory).forEach((p)=>{
-    const row = document.createElement('div');
-    row.className='row';
-    row.dataset.name = p.name.toLowerCase();
+    // Si un producto concreto tuviera algun dato raro, que falle solo el,
+    // no toda la lista (asi nunca mas se "corta" a mitad de camino).
+    try{
+      const row = document.createElement('div');
+      row.className='row';
+      row.dataset.name = p.name.toLowerCase();
 
-    const info = document.createElement('div');
-    const stockTxt = stockLabel(p);
-    const stockSpan = stockTxt ? `<span class="stockhint${p.stock<=0?' low':''}">${stockTxt}</span>` : '';
-    info.innerHTML = `<span class="pname">${p.name}</span><span class="maxhint">${maxLabel(p)}</span>${stockSpan}`;
+      const info = document.createElement('div');
+      const stockTxt = stockLabel(p);
+      const stockSpan = stockTxt ? `<span class="stockhint${p.stock<=0?' low':''}">${stockTxt}</span>` : '';
+      info.innerHTML = `<span class="pname">${p.name}</span><span class="maxhint">${maxLabel(p)}</span>${stockSpan}`;
 
-    const stepper = document.createElement('div');
-    stepper.className='stepper';
-    const minus = document.createElement('button');
-    minus.className='step-btn minus'; minus.textContent='▼'; minus.type='button';
-    const qty = document.createElement('div');
-    qty.className='qty'; qty.textContent=String(p.qty);
-    if(p.qty>0) row.classList.add('has-qty');
-    const plus = document.createElement('button');
-    plus.className='step-btn plus'; plus.textContent='▲'; plus.type='button';
+      const stepper = document.createElement('div');
+      stepper.className='stepper';
+      const minus = document.createElement('button');
+      minus.className='step-btn minus'; minus.textContent='▼'; minus.type='button';
+      const qty = document.createElement('div');
+      qty.className='qty'; qty.textContent=String(p.qty);
+      if(p.qty>0) row.classList.add('has-qty');
+      const plus = document.createElement('button');
+      plus.className='step-btn plus'; plus.textContent='▲'; plus.type='button';
 
-    minus.onclick=()=>{
-      if(!selectedPerson) return;
-      if(p.qty>0){p.qty--; qty.textContent=p.qty; row.classList.toggle('has-qty', p.qty>0); updateTotals();}
-    };
-    plus.onclick=()=>{
-      if(!selectedPerson) return;
-      if(p.max!=null && p.qty>=p.max) return;
-      p.qty++; qty.textContent=p.qty; row.classList.add('has-qty'); updateTotals();
-    };
+      minus.onclick=()=>{
+        if(!selectedPerson) return;
+        if(p.qty>0){p.qty--; qty.textContent=p.qty; row.classList.toggle('has-qty', p.qty>0); updateTotals();}
+      };
+      plus.onclick=()=>{
+        if(!selectedPerson) return;
+        if(p.max!=null && p.qty>=p.max) return;
+        p.qty++; qty.textContent=p.qty; row.classList.add('has-qty'); updateTotals();
+      };
 
-    stepper.appendChild(minus);
-    stepper.appendChild(qty);
-    stepper.appendChild(plus);
-    row.appendChild(info);
-    row.appendChild(stepper);
-    listEl.appendChild(row);
+      stepper.appendChild(minus);
+      stepper.appendChild(qty);
+      stepper.appendChild(plus);
+      row.appendChild(info);
+      row.appendChild(stepper);
+      listEl.appendChild(row);
+    }catch(err){
+      console.error('No se pudo mostrar un producto, se omite:', p, err);
+    }
   });
   // reaplica el filtro de busqueda activo, si lo hay
   const q = document.getElementById('search').value.trim().toLowerCase();
@@ -1713,7 +1728,7 @@ function renderAdminList(filter){
   adminList.innerHTML='';
   const q = (filter!=null ? filter : document.getElementById('adminSearch').value).trim().toLowerCase();
   const catFilter = document.getElementById('adminCategoryFilter').value;
-  PRODUCTS.forEach((p, idx)=>{
+  PRODUCTS.filter(p=>p && typeof p.name==='string').forEach((p, idx)=>{
     if(q && !p.name.toLowerCase().includes(q)) return;
     if(catFilter && (p.category||DEFAULT_CATEGORY)!==catFilter) return;
     const row = document.createElement('div');
@@ -1797,7 +1812,8 @@ function renderAdminList(filter){
     delBtn.title='Eliminar producto';
     delBtn.addEventListener('click', async ()=>{
       if(!confirm(`¿Eliminar "${p.name}" del catálogo?`)) return;
-      PRODUCTS.splice(idx,1);
+      const realIdx = PRODUCTS.indexOf(p); // idx es del array filtrado; buscamos la posicion real
+      if(realIdx>-1) PRODUCTS.splice(realIdx,1);
       await fsDeleteProduct(p.name);
       renderProducts();
       renderAdminList();
