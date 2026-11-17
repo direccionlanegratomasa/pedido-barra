@@ -10,50 +10,50 @@
 <style>
   :root{
     --bg:#FFFFFF;
-    --bg-deep:#FFF3D6;
+    --bg-deep:#FFFFFF;
     --panel:#FFFFFF;
-    --panel2:#FFF3BF;
-    --accent:#171009;
-    --accent-dim:#6B5216;
-    --text:#1B140A;
-    --text-dim:#6B5A34;
-    --border:#E0AC00;
-    --minus:#B23A2E;
-    --plus:#1E6B32;
+    --panel2:#F2F2F2;
+    --accent:#000000;
+    --accent-dim:#000000;
+    --text:#000000;
+    --text-dim:#333333;
+    --border:#000000;
+    --minus:#000000;
+    --plus:#000000;
     --radius:10px;
   }
   *{box-sizing:border-box;}
   .hidden{display:none !important;}
-  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Georgia,'Times New Roman',serif;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:Arial,Helvetica,sans-serif;}
   .app{max-width:720px;margin:0 auto;padding:0 0 140px 0;}
 
   /* Header: ticket look */
   .ticket-head{
-    background:linear-gradient(180deg,#FFD22B,var(--bg-deep));
+    background:#FFFFFF;
     padding:28px 24px 22px;
     border-bottom:2px solid var(--accent);
     position:relative;
     overflow:hidden;
   }
   .eyebrow{
-    font-family:'Courier New',monospace;
+    font-family:Arial,Helvetica,sans-serif;
     letter-spacing:3px;
-    font-size:11px;
+    font-size:18px;
     color:var(--accent-dim);
     text-transform:uppercase;
     margin:0 0 6px;
   }
   h1{
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:30px;
+    font-size:40px;
     letter-spacing:1px;
     margin:0 0 4px;
     color:var(--accent);
     text-transform:uppercase;
   }
   .sub{
-    font-family:'Courier New',monospace;
-    font-size:12px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:19px;
     color:var(--accent-dim);
     margin:0;
     font-weight:bold;
@@ -77,16 +77,16 @@
     background:
       linear-gradient(135deg, var(--bg) 50%, transparent 50%) 0 0/16px 16px,
       linear-gradient(-135deg, var(--bg) 50%, transparent 50%) 0 0/16px 16px;
-    background-color:#4A2E12;
+    background-color:#000000;
     background-repeat:repeat-x;
   }
 
   section{padding:20px 24px;}
   .label-row{
-    font-family:'Courier New',monospace;
+    font-family:Arial,Helvetica,sans-serif;
     text-transform:uppercase;
     letter-spacing:2px;
-    font-size:11px;
+    font-size:18px;
     color:var(--accent-dim);
     margin:0 0 10px;
     display:flex;
@@ -106,8 +106,8 @@
     width:100%;
     appearance:none;
     -webkit-appearance:none;
-    font-family:'Courier New',monospace;
-    font-size:15px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:23px;
     font-weight:bold;
     letter-spacing:1px;
     padding:14px 40px 14px 16px;
@@ -125,7 +125,7 @@
     position:absolute;
     right:16px;top:50%;
     transform:translateY(-50%);
-    font-size:16px;
+    font-size:25px;
     color:var(--accent-dim);
     pointer-events:none;
   }
@@ -140,7 +140,7 @@
   .category-tab-btn{
     flex:1;
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:12px;
+    font-size:19px;
     letter-spacing:0.5px;
     text-transform:uppercase;
     padding:12px 10px;
@@ -157,10 +157,10 @@
     color:var(--bg);
   }
   .lock-hint{
-    font-family:'Courier New',monospace;
-    font-size:12px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:19px;
     color:var(--minus);
-    background:rgba(178,58,46,0.08);
+    background:#FFFFFF;
     border:1px dashed var(--minus);
     border-radius:8px;
     padding:10px 12px;
@@ -187,8 +187,8 @@
     border:1px solid var(--border);
     border-radius:var(--radius);
     color:var(--text);
-    font-family:'Courier New',monospace;
-    font-size:14px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:22px;
     outline:none;
   }
   #search::placeholder{color:var(--text-dim);}
@@ -204,25 +204,25 @@
     padding:12px 4px;
     border-bottom:1px solid var(--border);
   }
-  .row.has-qty{background:rgba(23,16,9,0.06);border-radius:8px;margin:0 -8px;padding-left:12px;padding-right:12px;}
+  .row.has-qty{background:#E6E6E6;border-radius:8px;margin:0 -8px;padding-left:12px;padding-right:12px;}
   .row.has-qty .pname{color:var(--accent);font-weight:bold;}
   .row.hidden{display:none;}
   .pname{
-    font-size:15.5px;
+    font-size:24px;
     color:var(--text);
     line-height:1.3;
   }
   .maxhint{
     display:block;
-    font-family:'Courier New',monospace;
-    font-size:12px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:19px;
     color:var(--text-dim);
     margin-top:2px;
   }
   .stockhint{
     display:block;
-    font-family:'Courier New',monospace;
-    font-size:12px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:19px;
     color:var(--plus);
     margin-top:1px;
   }
@@ -239,7 +239,7 @@
     border:1px solid var(--border);
     background:var(--panel2);
     color:var(--text);
-    font-size:18px;
+    font-size:28px;
     line-height:1;
     cursor:pointer;
     display:flex;align-items:center;justify-content:center;
@@ -247,13 +247,13 @@
     transition:transform .08s ease;
   }
   .step-btn:active{transform:scale(0.92);}
-  .step-btn.minus{color:var(--minus);border-color:#4a2c26;}
-  .step-btn.plus{color:var(--plus);border-color:#2c3f26;}
+  .step-btn.minus{color:var(--minus);border-color:#000000;}
+  .step-btn.plus{color:var(--plus);border-color:#000000;}
   .qty{
     width:44px;
     text-align:center;
-    font-family:'Courier New',monospace;
-    font-size:18px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:28px;
     font-weight:bold;
     color:var(--text);
   }
@@ -266,8 +266,8 @@
     border:1px solid var(--border);
     border-radius:var(--radius);
     color:var(--text);
-    font-family:'Courier New',monospace;
-    font-size:13px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:20px;
     padding:10px 12px;
     resize:vertical;
     outline:none;
@@ -278,15 +278,15 @@
   .footer-bar{
     position:fixed;
     bottom:0;left:0;right:0;
-    background:#4A2E12;
+    background:#000000;
     border-top:1px solid var(--border);
     max-width:720px;
     margin:0 auto;
     padding:14px 20px calc(14px + env(safe-area-inset-bottom));
   }
   .footer-inner{display:flex;align-items:center;gap:16px;max-width:720px;margin:0 auto;}
-  .totals{flex:1;font-family:'Courier New',monospace;font-size:12px;color:#C9A227;}
-  .totals b{color:var(--bg);font-size:15px;}
+  .totals{flex:1;font-family:Arial,Helvetica,sans-serif;font-size:19px;color:#FFFFFF;}
+  .totals b{color:var(--bg);font-size:23px;}
   #genBtn{
     background:var(--bg);
     color:var(--accent);
@@ -295,18 +295,18 @@
     border-radius:16px;
     font-family:'Arial Black',Impact,sans-serif;
     letter-spacing:0.5px;
-    font-size:11.5px;
+    font-size:18px;
     text-transform:uppercase;
     cursor:pointer;
     text-align:center;
     line-height:1.3;
     max-width:150px;
   }
-  #genBtn:disabled{background:#5a4d1f;color:#8a7c50;cursor:not-allowed;}
+  #genBtn:disabled{background:#555555;color:#BBBBBB;cursor:not-allowed;}
   #genBtn:not(:disabled):active{transform:scale(0.97);}
   #warn{
-    font-family:'Courier New',monospace;
-    font-size:11.5px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--minus);
     text-align:center;
     margin-top:8px;
@@ -319,17 +319,17 @@
     top:14px;right:14px;
     width:34px;height:34px;
     border-radius:8px;
-    border:1px solid rgba(23,16,9,0.25);
-    background:rgba(255,255,255,0.35);
+    border:1px solid #000000;
+    background:#FFFFFF;
     color:var(--accent);
-    font-size:16px;
+    font-size:25px;
     cursor:pointer;
     z-index:2;
   }
   .admin-overlay{
     position:fixed;
     inset:0;
-    background:rgba(10,7,3,0.72);
+    background:rgba(0,0,0,0.75);
     display:flex;
     align-items:flex-end;
     justify-content:center;
@@ -358,23 +358,23 @@
     border:1px solid var(--border);
     border-radius:10px;
     color:var(--accent);
-    font-family:'Courier New',monospace;
-    font-size:14px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:22px;
     outline:none;
     box-sizing:border-box;
     margin-bottom:10px;
   }
   .admin-warn{
-    font-family:'Courier New',monospace;
-    font-size:12px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:19px;
     color:var(--minus);
     min-height:16px;
     margin-bottom:6px;
   }
   .admin-note{
-    font-family:'Courier New',monospace;
-    font-size:11.5px;
-    color:#6B5216;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
+    color:var(--text-dim);
     min-height:14px;
     margin-bottom:6px;
   }
@@ -387,7 +387,7 @@
   }
   .btn-solid, .btn-ghost{
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:12px;
+    font-size:19px;
     letter-spacing:0.5px;
     text-transform:uppercase;
     padding:11px 18px;
@@ -399,7 +399,7 @@
     background:var(--accent);
     color:var(--bg);
   }
-  .btn-solid.small, .btn-ghost.small{padding:11px 14px;white-space:nowrap;font-size:11px;}
+  .btn-solid.small, .btn-ghost.small{padding:11px 14px;white-space:nowrap;font-size:18px;}
   .btn-ghost{
     background:transparent;
     color:var(--accent);
@@ -428,13 +428,13 @@
   }
   .admin-row .admin-pname{
     flex:1;
-    font-size:13.5px;
+    font-size:21px;
   }
   .admin-cat-badge{
     display:inline-block;
     margin-top:3px;
-    font-family:'Courier New',monospace;
-    font-size:9.5px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     text-transform:uppercase;
     color:var(--accent-dim);
     background:var(--panel2);
@@ -446,7 +446,7 @@
     width:74px;
     margin-bottom:0;
     padding:8px 8px;
-    font-size:13px;
+    font-size:20px;
   }
   .admin-del{
     width:30px;height:30px;
@@ -454,7 +454,7 @@
     border:1px solid var(--minus);
     background:transparent;
     color:var(--minus);
-    font-size:14px;
+    font-size:22px;
     cursor:pointer;
   }
 
@@ -467,7 +467,7 @@
   .admin-tab-btn{
     flex:1;
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:11px;
+    font-size:18px;
     letter-spacing:0.5px;
     text-transform:uppercase;
     padding:10px 8px;
@@ -491,8 +491,8 @@
     border-bottom:1px dashed var(--border);
   }
   .admin-subtab-btn{
-    font-family:'Courier New',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     letter-spacing:0.5px;
     text-transform:uppercase;
     padding:7px 12px;
@@ -519,8 +519,8 @@
   }
   .admin-num-field{display:flex; flex-direction:column; gap:2px;}
   .admin-num-field span{
-    font-family:'Courier New',monospace;
-    font-size:9px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
     text-transform:uppercase;
     letter-spacing:0.5px;
@@ -540,7 +540,7 @@
     background:var(--panel2);
   }
   .wh-order.complete{
-    background:rgba(30,107,50,0.08);
+    background:#E6E6E6;
     border-color:var(--plus);
   }
   .wh-order-head{
@@ -553,17 +553,17 @@
   }
   .wh-order-person{
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:14px;
+    font-size:22px;
     letter-spacing:0.5px;
   }
   .wh-order-date{
-    font-family:'Courier New',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
   }
   .wh-badge{
-    font-family:'Courier New',monospace;
-    font-size:10px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     text-transform:uppercase;
     letter-spacing:0.5px;
     padding:3px 8px;
@@ -573,8 +573,8 @@
   }
   .wh-badge.done{background:var(--plus);}
   .wh-obs{
-    font-family:'Courier New',monospace;
-    font-size:11.5px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
     margin:6px 0 10px;
     font-style:italic;
@@ -589,11 +589,11 @@
   .wh-item:first-of-type{border-top:none;}
   .wh-item-name{
     flex:1;
-    font-size:13px;
+    font-size:20px;
   }
   .wh-item-req{
-    font-family:'Courier New',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
     white-space:nowrap;
   }
@@ -601,7 +601,7 @@
     width:60px;
     margin-bottom:0;
     padding:8px;
-    font-size:13px;
+    font-size:20px;
   }
   .wh-item input[type="checkbox"]{
     width:22px;height:22px;
@@ -609,8 +609,8 @@
     cursor:pointer;
   }
   .wh-empty{
-    font-family:'Courier New',monospace;
-    font-size:12.5px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:19px;
     color:var(--text-dim);
     text-align:center;
     padding:24px 0;
@@ -621,26 +621,26 @@
     gap:10px;
     padding:10px 2px;
     border-bottom:1px solid var(--border);
-    font-size:13px;
+    font-size:20px;
   }
   .hist-date{
-    font-family:'Courier New',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
     white-space:nowrap;
     flex:0 0 auto;
   }
   .hist-name{flex:1;}
   .hist-qty{
-    font-family:'Courier New',monospace;
+    font-family:Arial,Helvetica,sans-serif;
     font-weight:bold;
     color:var(--plus);
     white-space:nowrap;
   }
   .hist-qty.out{color:var(--minus);}
   .hist-method{
-    font-family:'Courier New',monospace;
-    font-size:9.5px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     text-transform:uppercase;
     color:var(--accent-dim);
     background:var(--panel2);
@@ -658,20 +658,20 @@
   }
   .restock-row .restock-name{
     flex:1;
-    font-size:13.5px;
+    font-size:21px;
   }
   .restock-row input[type="number"]{
     width:70px;
     margin-bottom:0;
     padding:8px;
-    font-size:13px;
+    font-size:20px;
   }
   .day-group{
     margin-top:18px;
   }
   .day-group-header{
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:13px;
+    font-size:20px;
     letter-spacing:0.5px;
     color:var(--accent);
     background:var(--panel2);
@@ -683,8 +683,8 @@
     align-items:center;
   }
   .day-group-count{
-    font-family:'Courier New',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
     font-weight:normal;
   }
@@ -702,19 +702,75 @@
   }
   .arch-order-person{
     font-family:'Arial Black',Impact,sans-serif;
-    font-size:13px;
+    font-size:20px;
   }
   .arch-order-time{
-    font-family:'Courier New',monospace;
-    font-size:11px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
   }
   .arch-order-items{
-    font-family:'Courier New',monospace;
-    font-size:11.5px;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18px;
     color:var(--text-dim);
     line-height:1.6;
   }
+
+  /* ===== Blanco y negro + letra grande (nov 2026) ===== */
+  body{font-size:20px;line-height:1.35;}
+  .brandmark,.watermark{filter:grayscale(1) contrast(1.2);}
+  .brandmark{height:44px;}
+  .ticket-head{border-bottom:3px solid #000;}
+  .label-row{font-weight:bold;letter-spacing:1px;color:#000;}
+  .label-row::after{height:2px;}
+  .admin-btn{width:52px;height:52px;font-size:28px;border-width:2px;}
+  #personSelect,#search,textarea{border-width:2px;}
+  .row{flex-wrap:wrap;padding:16px 4px;border-bottom-width:2px;}
+  .row{flex-wrap:nowrap;}
+  .row > div:first-child{flex:1 1 auto;min-width:0;overflow-wrap:break-word;}
+  .pname{font-weight:bold;}
+  .row.has-qty{box-shadow:inset 8px 0 0 #000;}
+  .stockhint.low{background:#000;color:#fff;display:inline-block;padding:2px 8px;border-radius:6px;margin-top:4px;}
+  .stepper{margin-left:auto;}
+  .step-btn{width:54px;height:54px;font-size:26px;border-width:2px;}
+  .qty{width:52px;font-size:30px;}
+  .category-tabs{flex-wrap:wrap;}
+  .category-tab-btn{flex:1 1 160px;border-width:2px;}
+  .lock-hint{border-width:2px;font-weight:bold;}
+  .footer-bar{border-top:3px solid #000;}
+  .footer-inner{flex-wrap:nowrap;}
+  .totals{line-height:1.25;}
+  .totals b{font-size:28px;}
+  #genBtn{max-width:60%;padding:16px 20px;}
+  #warn{color:#fff;font-weight:bold;}
+  .btn-solid,.btn-ghost{border-width:2px;}
+  .admin-tabs,.admin-subtabs{flex-wrap:wrap;}
+  .admin-tab-btn{flex:1 1 140px;border-width:2px;}
+  .admin-del{width:48px;height:48px;font-size:22px;border-width:2px;}
+  .admin-row input[type="number"]{width:96px;}
+  .wh-item,.admin-row,.hist-row,.restock-row{flex-wrap:wrap;}
+  .wh-item input[type="number"],.restock-row input[type="number"]{width:96px;}
+  .wh-item input[type="checkbox"]{width:32px;height:32px;accent-color:#000;}
+  .wh-order{border-width:2px;}
+  .wh-badge{background:#000;color:#fff;}
+  .wh-badge.done{background:#fff;color:#000;border:2px solid #000;}
+  .hist-qty.out{text-decoration:underline;}
+  /* Albaranes de Yurest */
+  .yu-card{border:2px solid #000;border-radius:12px;padding:14px;margin-bottom:14px;background:#fff;}
+  .yu-card.alerta{border-width:4px;}
+  .yu-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-weight:bold;}
+  .yu-sub{color:var(--text-dim);margin:4px 0 10px;}
+  .yu-line{border-top:1px dashed #000;padding:10px 0;}
+  .yu-line-name{font-weight:bold;}
+  .yu-line-meta{color:var(--text-dim);}
+  .yu-line-ctrls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+  .yu-line-ctrls select{flex:2 1 220px;margin-bottom:0 !important;}
+  .yu-line-ctrls label{display:flex;align-items:center;gap:6px;flex:0 0 auto;}
+  .yu-line-ctrls input[type="number"]{width:96px !important;margin-bottom:0 !important;}
+  .yu-total{font-weight:bold;white-space:nowrap;}
+  .yu-done{padding:8px 0;border-bottom:1px solid #000;}
+  .tab-count{display:inline-block;background:#fff;color:#000;border:2px solid #000;border-radius:999px;padding:0 8px;margin-left:6px;}
+  .admin-tab-btn:not(.active) .tab-count{background:#000;color:#fff;}
 </style>
 </head>
 <body>
@@ -754,7 +810,7 @@
 
 <div class="footer-bar">
   <div class="footer-inner">
-    <div class="totals" id="totalsLine"><b>0</b> productos · <b>0</b> unidades</div>
+    <div class="totals" id="totalsLine"><b>0</b> productos<br><b>0</b> unidades</div>
     <button id="genBtn" disabled>Generar e imprimir</button>
   </div>
   <div id="warn"></div>
@@ -837,7 +893,17 @@
       </div>
 
       <div id="adminReceiveTab" class="hidden">
-        <p class="label-row">A&ntilde;adir stock manualmente</p>
+        <p class="label-row">Compras de alcohol desde Yurest</p>
+        <div class="admin-note">Los albaranes de <b>BORDINO</b> y <b>SUBMARINER</b> llegan solos desde Yurest (se revisa cada 15 minutos). La primera vez que aparece un producto, di a qu&eacute; producto del cat&aacute;logo corresponde y cu&aacute;ntas unidades trae cada formato (una caja de 6 = 6). Se recuerda: los siguientes albaranes se suman al stock sin tocar nada.</div>
+        <div id="yurestNote" class="admin-note"></div>
+        <div id="yurestList"></div>
+        <div class="admin-actions">
+          <button id="yurestMapBtn" class="btn-ghost">Ver equivalencias</button>
+          <button id="yurestRefreshBtn" class="btn-ghost">Actualizar</button>
+        </div>
+        <div id="yurestMapList" class="hidden"></div>
+
+        <p class="label-row" style="margin-top:24px;">A&ntilde;adir stock manualmente</p>
         <div class="admin-add-row">
           <input id="restockProduct" type="text" list="productDatalist" placeholder="Producto...">
           <datalist id="productDatalist"></datalist>
@@ -863,10 +929,11 @@
         <p class="label-row">Hist&oacute;rico de movimientos de stock</p>
         <div class="admin-add-row">
           <input id="historySearch" type="text" placeholder="Buscar producto en el hist&oacute;rico..." style="flex:2;">
-          <select id="historyTypeFilter" style="flex:1;padding:12px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);font-family:'Courier New',monospace;font-size:13px;">
+          <select id="historyTypeFilter" style="flex:1;padding:12px 10px;border-radius:10px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);font-family:Arial,Helvetica,sans-serif;font-size:20px;">
             <option value="">Todas</option>
             <option value="entrada">Entradas</option>
             <option value="salida">Salidas</option>
+            <option value="ajuste">Ajustes de inventario</option>
           </select>
         </div>
         <div id="stockHistoryList" class="admin-list"></div>
@@ -1596,7 +1663,7 @@ function updateTotals(){
   const withQty = PRODUCTS.filter(p=>p.qty>0);
   const totalUnits = withQty.reduce((s,p)=>s+p.qty,0);
   document.getElementById('totalsLine').innerHTML =
-    `<b>${withQty.length}</b> productos · <b>${totalUnits}</b> unidades`;
+    `<b>${withQty.length}</b> productos<br><b>${totalUnits}</b> unidades`;
   updateGenBtn();
 }
 function updateGenBtn(){
@@ -1664,7 +1731,7 @@ const SUB_CONFIG = {
     archived: { contentId:'adminOrdersTab',    btnId:'subArchivedBtn', onShow: ()=>renderArchivedOrders() }
   }},
   stock: { containerId:'stockSubtabs', default:'receive', subs:{
-    receive:   { contentId:'adminReceiveTab', btnId:'subReceiveBtn',   onShow: ()=>refreshProductDatalist() },
+    receive:   { contentId:'adminReceiveTab', btnId:'subReceiveBtn',   onShow: ()=>{ refreshProductDatalist(); yurestRefresh(true); } },
     movements: { contentId:'adminHistoryTab', btnId:'subMovementsBtn',onShow: ()=>renderStockHistory() },
     restock:   { contentId:'adminRestockTab', btnId:'subRestockBtn',  onShow: ()=>initRestockDates() }
   }}
@@ -2200,7 +2267,7 @@ function refreshProductDatalist(){
 }
 
 // ---- Render del historico de movimientos de stock (entradas y salidas) ----
-const METHOD_LABEL = { manual: 'Manual', albaran: 'Albarán', entrega: 'Entrega pedido' };
+const METHOD_LABEL = { manual: 'Manual', albaran: 'Albarán', entrega: 'Entrega pedido', yurest: 'Yurest', inventario: 'Inventario' };
 
 async function renderStockHistory(filter){
   const listEl = document.getElementById('stockHistoryList');
@@ -2222,13 +2289,14 @@ async function renderStockHistory(filter){
 
   listEl.innerHTML = '';
   filtered.forEach(entry=>{
-    const isOut = entry.type === 'salida';
+    // Los ajustes de inventario fijan el stock: baja si el nuevo es menor que el anterior.
+    const isOut = entry.type === 'salida' || (entry.type === 'ajuste' && entry.newStock < (entry.previousStock||0));
     const row = document.createElement('div');
     row.className = 'hist-row';
     const personLine = entry.person ? ` · ${entry.person}` : '';
     row.innerHTML = `
       <span class="hist-date">${fmtOrderDate(entry.date)}</span>
-      <span class="hist-name">${entry.product}<br><span style="color:var(--text-dim);font-size:11px;">${entry.previousStock} → ${entry.newStock}${personLine}</span></span>
+      <span class="hist-name">${entry.product}<br><span style="color:var(--text-dim);font-size:18px;">${entry.previousStock==null?'sin dato':entry.previousStock} → ${entry.newStock}${personLine}</span></span>
       <span class="hist-qty${isOut?' out':''}">${isOut?'−':'+'}${entry.qty}</span>
       <span class="hist-method">${METHOD_LABEL[entry.method] || entry.method}</span>
     `;
@@ -2290,7 +2358,8 @@ document.getElementById('printHistoryBtn').addEventListener('click', async ()=>{
       doc.addPage();
       y = 50;
     }
-    const isOut = entry.type === 'salida';
+    // Los ajustes de inventario fijan el stock: baja si el nuevo es menor que el anterior.
+    const isOut = entry.type === 'salida' || (entry.type === 'ajuste' && entry.newStock < (entry.previousStock||0));
     const sign = isOut ? '-' : '+';
     let origin = METHOD_LABEL[entry.method] || entry.method;
     if(entry.person) origin += ` (${entry.person})`;
@@ -2739,7 +2808,7 @@ function renderAlbaranReview(){
     nameWrap.innerHTML = `<div>${item.detectedName}</div>`;
 
     const select = document.createElement('select');
-    select.style.cssText = 'width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);font-family:Courier New,monospace;font-size:12px;';
+    select.style.cssText = 'width:100%;margin-top:4px;padding:8px;border-radius:8px;border:1px solid var(--border);background:var(--panel2);color:var(--accent);font-family:Arial,Helvetica,sans-serif;font-size:19px;';
     const noneOpt = document.createElement('option');
     noneOpt.value = '';
     noneOpt.textContent = '— Sin coincidencia: elige producto —';
@@ -2829,12 +2898,354 @@ document.getElementById('albaranConfirmBtn').addEventListener('click', async ()=
   document.getElementById('albaranActions').classList.add('hidden');
 });
 
+// ========== COMPRAS DE ALCOHOL DESDE YUREST (Bordino y Submariner) ==========
+// El Apps Script «yurest_pedido_barra.gs» deja cada albaran de esos dos
+// proveedores en la coleccion `pedido-barra-yurest` (estado 'pendiente').
+// Aqui se suman al stock:
+//  - Solo, sin preguntar, cuando TODAS sus lineas tienen ya una equivalencia
+//    guardada (producto de Yurest -> producto del catalogo + unidades por formato).
+//  - Si alguna linea es nueva, el albaran espera en Stock > Recibir hasta que
+//    el admin diga a que producto corresponde; la equivalencia se recuerda.
+// Una transaccion marca el albaran como 'aplicado' ANTES de sumar, para que
+// dos dispositivos abiertos a la vez nunca lo sumen dos veces.
+const YUREST_COLLECTION = 'pedido-barra-yurest';
+const YUREST_MAP_KEY = 'yurest-mapeo';
+const YUREST_IGNORE = '__ignorar__';
+let yurestMap = {};      // clave de linea -> {producto: nombre|null, factor: n}
+let yurestDocs = [];     // [{id, estado, datos, datosNuevos, cambiadoTrasAplicar, aplicadoEn, aplicadoPor}]
+let yurestBusy = false;
+
+function yEsc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function yNorm(s){
+  return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+}
+function yurestLineKey(l){
+  return l.productoId ? ('id:' + l.productoId) : ('n:' + yNorm(l.nombre));
+}
+function yurestFmtFecha(f){
+  if(!f) return 'sin fecha';
+  const d = new Date(String(f).replace(' ', 'T'));
+  if(isNaN(d)) return String(f);
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+// Sugerencia de unidades por formato a partir del texto del formato
+// ("CAJA 6 UDS", "6X70CL" -> 6). Solo es una propuesta: el admin la confirma.
+function yurestFactorSugerido(formato){
+  const t = yNorm(formato);
+  let m = t.match(/(\d+)\s*(?:X|UDS?\b|UNIDADES|BOT)/);
+  if(m) return parseInt(m[1],10) || 1;
+  return 1;
+}
+
+async function loadYurestMap(){
+  try{
+    const res = await window.storage.get(YUREST_MAP_KEY, true);
+    if(res && res.value){ const o = JSON.parse(res.value); if(o && typeof o === 'object') return o; }
+  }catch(e){}
+  return {};
+}
+async function saveYurestMapEntries(entries){
+  // Relee antes de guardar para no pisar equivalencias guardadas desde otro dispositivo.
+  const current = await loadYurestMap();
+  Object.assign(current, entries);
+  await window.storage.set(YUREST_MAP_KEY, JSON.stringify(current), true);
+  yurestMap = current;
+}
+async function deleteYurestMapEntry(key){
+  const current = await loadYurestMap();
+  delete current[key];
+  await window.storage.set(YUREST_MAP_KEY, JSON.stringify(current), true);
+  yurestMap = current;
+}
+
+async function loadYurestDocs(){
+  if(!db) return [];
+  try{
+    const snap = await db.collection(YUREST_COLLECTION).get();
+    return snap.docs.map(d=>{
+      const v = d.data() || {};
+      let datos = null, datosNuevos = null;
+      try{ datos = JSON.parse(v.datos || 'null'); }catch(e){}
+      try{ datosNuevos = v.datosNuevos ? JSON.parse(v.datosNuevos) : null; }catch(e){}
+      return { id:d.id, estado:v.estado, datos, datosNuevos, cambiadoTrasAplicar:!!v.cambiadoTrasAplicar,
+               aplicadoEn:v.aplicadoEn||null, aplicadoPor:v.aplicadoPor||null };
+    }).filter(x=>x.datos && Array.isArray(x.datos.lineas));
+  }catch(e){
+    console.error('No se pudieron leer los albaranes de Yurest', e);
+    return null;
+  }
+}
+
+// Para cada linea: {producto, factor} si se sabe; null si falta decidir.
+function yurestResolveLine(l){
+  const m = yurestMap[yurestLineKey(l)];
+  if(!m) return null;
+  if(m.producto && !PRODUCTS.some(p=>p.name===m.producto)) return null; // producto borrado del catalogo
+  return { producto: m.producto || null, factor: Number(m.factor) || 1 };
+}
+
+async function applyYurestAlbaran(doc, resolutions, by){
+  const ref = db.collection(YUREST_COLLECTION).doc(doc.id);
+  let claimed = false;
+  try{
+    claimed = await db.runTransaction(async tx=>{
+      const snap = await tx.get(ref);
+      if(!snap.exists || snap.data().estado !== 'pendiente') return false;
+      tx.update(ref, { estado:'aplicado', aplicadoEn:new Date().toISOString(), aplicadoPor:by });
+      return true;
+    });
+  }catch(e){ console.error('No se pudo reservar el albarán', doc.id, e); return { ok:false, n:0 }; }
+  if(!claimed) return { ok:false, n:0 };
+
+  // Agrupa por producto del catalogo (varias lineas pueden ir al mismo).
+  const totals = new Map();
+  doc.datos.lineas.forEach((l, i)=>{
+    const r = resolutions[i];
+    if(!r || !r.producto) return;
+    const units = Math.round((Number(l.cantidad)||0) * (Number(r.factor)||1));
+    if(units > 0) totals.set(r.producto, (totals.get(r.producto)||0) + units);
+  });
+
+  const who = `${doc.datos.proveedor || 'Yurest'} · alb. ${doc.datos.referencia || doc.datos.yurestId}`;
+  const newHistory = [];
+  const applied = [];
+  for(const [name, units] of totals){
+    const prod = PRODUCTS.find(p=>p.name===name);
+    if(!prod) continue;
+    const newStock = await fsIncrementProductStock(prod.name, units);
+    const resolved = (newStock!=null) ? newStock : ((prod.stock==null?0:prod.stock) + units);
+    prod.stock = resolved;
+    applied.push({ producto:prod.name, unidades:units });
+    newHistory.push({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+      date: new Date().toISOString(),
+      type: 'entrada', product: prod.name, qty: units,
+      previousStock: resolved - units, newStock: resolved,
+      method: 'yurest', person: who
+    });
+  }
+  if(newHistory.length){
+    const entries = await loadStockHistory();
+    entries.push(...newHistory);
+    await saveStockHistory(entries);
+  }
+  try{ await ref.update({ resumen: JSON.stringify(applied) }); }catch(e){}
+  return { ok:true, n:applied.length };
+}
+
+// Suma sola los albaranes ya reconocidos y, si showUI, pinta la lista del admin.
+async function yurestRefresh(showUI){
+  if(yurestBusy) return;
+  yurestBusy = true;
+  const note = document.getElementById('yurestNote');
+  try{
+    if(!db){
+      if(showUI) note.textContent = 'Sin conexión con la base de datos: no se pueden leer las compras de Yurest ahora.';
+      return;
+    }
+    if(showUI) note.textContent = 'Comprobando compras de Yurest...';
+    yurestMap = await loadYurestMap();
+    const docs = await loadYurestDocs();
+    if(docs===null){ if(showUI) note.textContent = 'No se pudieron leer las compras de Yurest. Pulsa «Actualizar».'; return; }
+
+    let autoApplied = 0;
+    for(const d of docs){
+      if(d.estado !== 'pendiente') continue;
+      const res = d.datos.lineas.map(yurestResolveLine);
+      if(res.length && res.every(r=>r)){
+        const r = await applyYurestAlbaran(d, res, 'auto');
+        if(r.ok){ autoApplied++; d.estado = 'aplicado'; d.aplicadoEn = new Date().toISOString(); d.aplicadoPor = 'auto'; }
+      }
+    }
+    yurestDocs = docs;
+    if(autoApplied){ renderProducts(); try{ renderStockHistory(); }catch(e){} }
+    updateYurestBadge();
+    if(showUI){
+      const pend = docs.filter(d=>d.estado==='pendiente').length;
+      note.textContent = (autoApplied ? `Se han sumado solos ${autoApplied} albarán(es). ` : '') +
+        (pend ? `${pend} albarán(es) esperan que digas a qué producto corresponde alguna línea.` : 'No hay albaranes pendientes.');
+      renderYurestList();
+    }
+  }finally{
+    yurestBusy = false;
+  }
+}
+
+function updateYurestBadge(){
+  const n = yurestDocs.filter(d=>d.estado==='pendiente' || d.cambiadoTrasAplicar).length;
+  const btn = document.getElementById('tabStockMainBtn');
+  btn.innerHTML = 'Stock' + (n ? ` <span class="tab-count">${n}</span>` : '');
+  const sub = document.getElementById('subReceiveBtn');
+  sub.innerHTML = 'Recibir' + (n ? ` <span class="tab-count">${n}</span>` : '');
+}
+
+function yurestProductSelect(selected){
+  const sel = document.createElement('select');
+  const o0 = document.createElement('option'); o0.value=''; o0.textContent='— Elige producto del catálogo —'; sel.appendChild(o0);
+  const oi = document.createElement('option'); oi.value=YUREST_IGNORE; oi.textContent='No es de barra (no sumar)'; sel.appendChild(oi);
+  [...PRODUCTS].sort((a,b)=>a.name.localeCompare(b.name)).forEach(p=>{
+    const o = document.createElement('option'); o.value=p.name; o.textContent=p.name; sel.appendChild(o);
+  });
+  sel.value = selected || '';
+  return sel;
+}
+
+function renderYurestList(){
+  const listEl = document.getElementById('yurestList');
+  listEl.innerHTML = '';
+  const byDate = (a,b)=> String(b.datos.fecha||'').localeCompare(String(a.datos.fecha||''));
+
+  // 1) Albaranes que se cambiaron en Yurest DESPUES de sumarlos
+  yurestDocs.filter(d=>d.cambiadoTrasAplicar).sort(byDate).forEach(d=>{
+    const card = document.createElement('div');
+    card.className = 'yu-card alerta';
+    const nuevas = (d.datosNuevos && d.datosNuevos.lineas) || [];
+    card.innerHTML = `
+      <div class="yu-head"><span>${yEsc(d.datos.proveedor)} · alb. ${yEsc(d.datos.referencia)}</span><span>${yurestFmtFecha(d.datos.fecha)}</span></div>
+      <div class="yu-sub"><b>Cambiado en Yurest después de sumarlo al stock.</b> El stock no se ha tocado: revisa la diferencia y ajusta a mano si hace falta.</div>
+      <div class="yu-line"><div class="yu-line-name">Antes</div><div class="yu-line-meta">${d.datos.lineas.map(l=>`${yEsc(l.nombre)}: ${l.cantidad}`).join(' · ')}</div></div>
+      <div class="yu-line"><div class="yu-line-name">Ahora en Yurest</div><div class="yu-line-meta">${nuevas.map(l=>`${yEsc(l.nombre)}: ${l.cantidad}`).join(' · ') || 'sin líneas'}</div></div>`;
+    const actions = document.createElement('div'); actions.className='admin-actions';
+    const ok = document.createElement('button'); ok.className='btn-solid'; ok.textContent='Revisado';
+    ok.addEventListener('click', async ()=>{
+      ok.disabled = true;
+      try{
+        await db.collection(YUREST_COLLECTION).doc(d.id).update({
+          cambiadoTrasAplicar:false, datos: JSON.stringify(d.datosNuevos || d.datos), datosNuevos: firebase.firestore.FieldValue.delete()
+        });
+      }catch(e){ console.error(e); }
+      yurestRefresh(true);
+    });
+    actions.appendChild(ok); card.appendChild(actions);
+    listEl.appendChild(card);
+  });
+
+  // 2) Pendientes de identificar
+  yurestDocs.filter(d=>d.estado==='pendiente').sort(byDate).forEach(d=>{
+    const card = document.createElement('div');
+    card.className = 'yu-card';
+    card.innerHTML = `
+      <div class="yu-head"><span>${yEsc(d.datos.proveedor)} · alb. ${yEsc(d.datos.referencia)}</span><span>${yurestFmtFecha(d.datos.fecha)}</span></div>
+      <div class="yu-sub">${d.datos.lineas.length} línea(s)${d.datos.estadoYurest ? ' · ' + yEsc(d.datos.estadoYurest) : ''}</div>`;
+
+    const rows = d.datos.lineas.map(l=>{
+      const known = yurestMap[yurestLineKey(l)];
+      const preProd = known ? (known.producto || YUREST_IGNORE) : (matchProductName(l.nombre) || '');
+      const preFactor = known ? (Number(known.factor)||1) : yurestFactorSugerido(l.formato);
+
+      const line = document.createElement('div'); line.className='yu-line';
+      line.innerHTML = `<div class="yu-line-name">${yEsc(l.nombre)}</div>
+        <div class="yu-line-meta">Yurest: ${l.cantidad}${l.formato ? ' × ' + yEsc(l.formato) : ''}${known ? ' · ya conocido' : ' · nuevo'}</div>`;
+      const ctrls = document.createElement('div'); ctrls.className='yu-line-ctrls';
+      const sel = yurestProductSelect(preProd);
+      const lab = document.createElement('label'); lab.textContent = 'uds/formato';
+      const fac = document.createElement('input'); fac.type='number'; fac.min='0'; fac.step='1'; fac.value=preFactor;
+      lab.appendChild(fac);
+      const tot = document.createElement('span'); tot.className='yu-total';
+      const upd = ()=>{
+        const f = Math.max(0, Number(fac.value)||0);
+        tot.textContent = (sel.value && sel.value!==YUREST_IGNORE) ? `→ +${Math.round(l.cantidad*f)}` : (sel.value===YUREST_IGNORE ? '→ no suma' : '→ ?');
+      };
+      sel.addEventListener('change', upd); fac.addEventListener('input', upd); upd();
+      ctrls.appendChild(sel); ctrls.appendChild(lab); ctrls.appendChild(tot);
+      line.appendChild(ctrls);
+      card.appendChild(line);
+      return { l, sel, fac };
+    });
+
+    const msg = document.createElement('div'); msg.className='admin-warn';
+    const actions = document.createElement('div'); actions.className='admin-actions';
+    const discard = document.createElement('button'); discard.className='btn-ghost'; discard.textContent='Descartar';
+    const apply = document.createElement('button'); apply.className='btn-solid'; apply.textContent='Sumar al stock';
+
+    discard.addEventListener('click', async ()=>{
+      if(!confirmInline(discard, '¿Seguro? Pulsa otra vez')) return;
+      try{ await db.collection(YUREST_COLLECTION).doc(d.id).update({ estado:'descartado', aplicadoEn:new Date().toISOString() }); }catch(e){ console.error(e); }
+      yurestRefresh(true);
+    });
+    apply.addEventListener('click', async ()=>{
+      if(rows.some(r=>!r.sel.value)){ msg.textContent = 'Elige un producto (o «No es de barra») en todas las líneas.'; return; }
+      apply.disabled = true; msg.textContent = '';
+      const entries = {};
+      const resolutions = rows.map(r=>{
+        const producto = r.sel.value===YUREST_IGNORE ? null : r.sel.value;
+        const factor = Math.max(0, Number(r.fac.value)||0) || 1;
+        entries[yurestLineKey(r.l)] = { producto, factor, nombreYurest: r.l.nombre, formato: r.l.formato || '' };
+        return { producto, factor };
+      });
+      await saveYurestMapEntries(entries);
+      const res = await applyYurestAlbaran(d, resolutions, 'admin');
+      renderProducts();
+      await yurestRefresh(true);
+      const note = document.getElementById('yurestNote');
+      note.textContent = (res.ok
+        ? `Sumado: ${res.n} producto(s). Las equivalencias quedan guardadas para próximos albaranes. `
+        : 'Este albarán ya lo había sumado otro dispositivo. ') + note.textContent;
+    });
+    actions.appendChild(discard); actions.appendChild(apply);
+    card.appendChild(msg); card.appendChild(actions);
+    listEl.appendChild(card);
+  });
+
+  // 3) Ultimos sumados (para comprobar)
+  const done = yurestDocs.filter(d=>d.estado==='aplicado' && !d.cambiadoTrasAplicar)
+    .sort((a,b)=>String(b.aplicadoEn||'').localeCompare(String(a.aplicadoEn||''))).slice(0,8);
+  if(done.length){
+    const h = document.createElement('p'); h.className='label-row'; h.style.marginTop='18px'; h.textContent='Últimos albaranes sumados';
+    listEl.appendChild(h);
+    done.forEach(d=>{
+      const row = document.createElement('div'); row.className='yu-done';
+      row.innerHTML = `<b>${yEsc(d.datos.proveedor)}</b> · alb. ${yEsc(d.datos.referencia)} · ${yurestFmtFecha(d.datos.fecha)}<br>
+        <span class="yu-line-meta">Sumado ${d.aplicadoEn ? fmt(new Date(d.aplicadoEn)) : ''} (${d.aplicadoPor==='auto' ? 'automático' : 'admin'})</span>`;
+      listEl.appendChild(row);
+    });
+  }
+}
+
+// Doble pulsacion para acciones que no se deshacen (sin dialogos del navegador).
+function confirmInline(btn, text){
+  if(btn.dataset.armed==='1') return true;
+  const old = btn.textContent;
+  btn.dataset.armed='1'; btn.textContent = text;
+  setTimeout(()=>{ btn.dataset.armed=''; btn.textContent = old; }, 4000);
+  return false;
+}
+
+function renderYurestMapList(){
+  const el = document.getElementById('yurestMapList');
+  el.innerHTML = '';
+  const keys = Object.keys(yurestMap).sort((a,b)=>String(yurestMap[a].nombreYurest||a).localeCompare(String(yurestMap[b].nombreYurest||b)));
+  if(!keys.length){ el.innerHTML = '<div class="wh-empty">Todavía no hay equivalencias guardadas.</div>'; return; }
+  keys.forEach(k=>{
+    const m = yurestMap[k];
+    const row = document.createElement('div'); row.className='admin-row';
+    const txt = document.createElement('div'); txt.className='admin-pname';
+    txt.innerHTML = `${yEsc(m.nombreYurest || k)}<br><span class="yu-line-meta">→ ${m.producto ? yEsc(m.producto) + ' · ' + (m.factor||1) + ' uds/formato' : 'no se suma'}</span>`;
+    const del = document.createElement('button'); del.className='admin-del'; del.textContent='✕'; del.title='Olvidar esta equivalencia';
+    del.addEventListener('click', async ()=>{ await deleteYurestMapEntry(k); renderYurestMapList(); });
+    row.appendChild(txt); row.appendChild(del); el.appendChild(row);
+  });
+}
+
+document.getElementById('yurestRefreshBtn').addEventListener('click', ()=>yurestRefresh(true));
+document.getElementById('yurestMapBtn').addEventListener('click', async ()=>{
+  const el = document.getElementById('yurestMapList');
+  const show = el.classList.contains('hidden');
+  el.classList.toggle('hidden', !show);
+  if(show){ yurestMap = await loadYurestMap(); renderYurestMapList(); }
+});
+
 // ---- Arranque ----
 (async function init(){
   document.getElementById('genBtn').textContent = isMobileDevice() ? 'Generar y enviar por WhatsApp' : 'Generar e imprimir';
   renderCategoryTabs();
   await loadCatalog();
   renderProducts();
+  // Compras de Yurest: suma sola los albaranes ya reconocidos, al abrir y cada 5 min
+  yurestRefresh(false);
+  setInterval(()=>yurestRefresh(false), 5*60*1000);
 })();
 
 // ---- Generar PDF y enviarlo al equipo ----
