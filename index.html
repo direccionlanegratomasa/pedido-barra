@@ -908,7 +908,15 @@
       </div>
 
       <div id="adminWarehouseTab" class="hidden">
-        <p class="label-row">Pedidos pendientes de entrega</p>
+        <p class="label-row">Salida urgente (sin pedido)</p>
+        <div class="admin-note">Para una urgencia: escaneas directamente lo que sale, haces la foto y se descuenta. Queda registrado como «urgente» con quién se lo lleva.</div>
+        <div class="admin-add-row" style="margin-top:8px;">
+          <select id="urgPerson"></select>
+          <button id="urgBtn" class="btn-solid dl-big" type="button">⚡ Escanear salida urgente</button>
+        </div>
+        <div id="urgNote" class="admin-warn"></div>
+
+        <p class="label-row" style="margin-top:22px;">Pedidos pendientes de entrega</p>
         <div id="warehouseNote" class="admin-note"></div>
         <div id="warehouseList"></div>
         <div class="admin-actions">
@@ -2494,7 +2502,7 @@ async function renderArchivedOrders(filter){
 
       card.innerHTML = `
         <div class="arch-order-head">
-          <span class="arch-order-person">${order.person}</span>
+          <span class="arch-order-person">${order.urgente ? '⚡ URGENTE · ' : ''}${order.person}</span>
           <span class="arch-order-time">${fmtTimeOnly(order.createdAt)} (pedido) → ${fmtTimeOnly(order.archivedAt)} (archivado)</span>
         </div>
         <div class="arch-order-items">${itemsText} — <b>${order.items.length} productos, ${totalUnits} unidades</b></div>
@@ -3217,8 +3225,8 @@ function buildOrderCard(order){
   const totalDel = order.items.reduce((s,it)=>s+itemDelivered(it),0);
   const head = document.createElement('div');
   head.className = 'wh-order-head';
-  head.innerHTML = `<span class="wh-order-person">${eEsc(order.person)}</span>
-    <span class="wh-badge ${totalDel>0?'done':''}">${totalDel}/${totalReq} uds</span>
+  head.innerHTML = `<span class="wh-order-person">${order.urgente ? '⚡ ' : ''}${eEsc(order.person)}</span>
+    <span class="wh-badge ${totalDel>0?'done':''}">${order.urgente ? 'URGENTE · ' + totalDel : totalDel + '/' + totalReq} uds</span>
     <span class="wh-order-date">${fmtOrderDate(order.createdAt)}</span>`;
   card.appendChild(head);
   if(order.obs){ const o = document.createElement('div'); o.className='wh-obs'; o.textContent = `Obs: ${order.obs}`; card.appendChild(o); }
@@ -3226,10 +3234,10 @@ function buildOrderCard(order){
   order.items.forEach(item=>{
     const d = itemDelivered(item), r = Number(item.requested)||0;
     const row = document.createElement('div');
-    row.className = 'wh-item dl-row' + (d===r ? ' ok' : (d>r ? ' over' : ''));
+    row.className = 'wh-item dl-row' + (order.urgente ? '' : (d===r ? ' ok' : (d>r ? ' over' : '')));
     const how = (item.manual ? ` · ${item.manual} a mano` : '');
-    row.innerHTML = `<div class="wh-item-name">${eEsc(item.name)}<div class="wh-item-req">Pedido ${r}${how}</div></div>
-      <div class="dl-count">${d}<small>/${r}</small></div>`;
+    row.innerHTML = `<div class="wh-item-name">${eEsc(item.name)}<div class="wh-item-req">${order.urgente ? 'Escaneado' : 'Pedido ' + r}${how}</div></div>
+      <div class="dl-count">${d}${order.urgente ? '' : `<small>/${r}</small>`}</div>`;
     card.appendChild(row);
   });
 
@@ -3293,10 +3301,10 @@ async function confirmDelivery(order, btn, msg){
   if(total===0){ msg.textContent = 'Todavía no se ha escaneado ninguna botella.'; return; }
   if(!pendingPhotos[order.id]){ msg.textContent = 'Falta la foto de todo lo que sale.'; return; }
   if(archivingOrderIds.has(order.id)) return;
-  const diffs = order.items.filter(it=>itemDelivered(it)!==(Number(it.requested)||0))
+  const diffs = order.urgente ? [] : order.items.filter(it=>itemDelivered(it)!==(Number(it.requested)||0))
     .map(it=>`${it.name}: pedido ${it.requested}, sale ${itemDelivered(it)}`);
   const manual = order.items.filter(it=>it.manual>0).map(it=>`${it.name}: ${it.manual} a mano`);
-  let text = `¿Confirmar la entrega de ${order.person}? Se descontarán ${total} unidades del stock.`;
+  let text = `¿Confirmar la ${order.urgente ? 'SALIDA URGENTE' : 'entrega'} de ${order.person}? Se descontarán ${total} unidades del stock.`;
   if(diffs.length) text += `\n\nNO coincide con lo pedido:\n- ` + diffs.join('\n- ');
   if(manual.length) text += `\n\nContado a mano (sin escanear):\n- ` + manual.join('\n- ');
   if(!confirm(text)) return;
@@ -3318,6 +3326,7 @@ async function confirmDelivery(order, btn, msg){
     for(const item of order.items){
       const qty = itemDelivered(item);
       item.deliveredQty = qty;
+      if(order.urgente) item.requested = qty;
       if(qty<=0) continue;
       const prod = PRODUCTS.find(p=>p.name===item.name);
       if(!prod) continue;
@@ -3327,7 +3336,7 @@ async function confirmDelivery(order, btn, msg){
       await addStockHistoryEntry({
         type:'salida', product:prod.name, qty, previousStock: resolved + qty, newStock: resolved,
         method: item.manual>0 ? (item.scan>0 ? 'entrega-mixta' : 'entrega-manual') : 'entrega-escaneada',
-        person: order.person
+        person: order.person + (order.urgente ? ' (urgente)' : '')
       });
     }
     renderProducts();
@@ -3452,6 +3461,10 @@ function handleCode(code){
 function countProduct(name, units, how){
   const order = SCAN.order;
   let item = order.items.find(it=>it.name===name);
+  if(!item && order.urgente){
+    item = { name, requested:0, scan:0, manual:0, deliveredQty:0, delivered:false };
+    order.items.push(item);
+  }
   if(!item){
     showNotInOrder(name, units);
     return;
@@ -3459,6 +3472,10 @@ function countProduct(name, units, how){
   item[how] = Math.max(0, (Number(item[how])||0) + units);
   persistOrderCounts(order);
   const d = itemDelivered(item), r = Number(item.requested)||0;
+  if(order.urgente){
+    setScanStatus(`+${units} ${name} → ${d}`, 'ok'); beep(true); vibrate(60);
+    renderScanList(name); return;
+  }
   const extra = d>r ? `  ⚠ ${d-r} DE MÁS` : (d===r ? '  ✓ completo' : `  (faltan ${r-d})`);
   setScanStatus(`+${units} ${name} → ${d}/${r}${extra}`, d>r ? 'warn' : 'ok');
   beep(d<=r); vibrate(d<=r ? 60 : [80,60,80]);
@@ -3522,9 +3539,10 @@ function renderScanList(highlight){
   SCAN.order.items.forEach(item=>{
     const d = itemDelivered(item), r = Number(item.requested)||0;
     const row = document.createElement('div');
-    row.className = 'scan-row' + (d===r ? ' ok' : (d>r ? ' over' : '')) + (item.name===highlight ? ' hl' : '');
+    const urg = !!SCAN.order.urgente;
+    row.className = 'scan-row' + (urg ? '' : (d===r ? ' ok' : (d>r ? ' over' : ''))) + (item.name===highlight ? ' hl' : '');
     row.innerHTML = `<div class="scan-name">${eEsc(item.name)}${item.manual ? `<small> · ${item.manual} a mano</small>` : ''}</div>
-      <div class="scan-n">${d}<small>/${r}</small></div>`;
+      <div class="scan-n">${d}${urg ? '' : `<small>/${r}</small>`}</div>`;
     const minus = document.createElement('button'); minus.className='scan-pm'; minus.textContent='−'; minus.title='Quitar una (corregir)';
     const plus = document.createElement('button'); plus.className='scan-pm'; plus.textContent='+'; plus.title='Sumar una a mano (sin código)';
     minus.onclick = ()=>{
@@ -3539,7 +3557,8 @@ function renderScanList(highlight){
   });
   const tot = SCAN.order.items.reduce((s,it)=>s+itemDelivered(it),0);
   const req = SCAN.order.items.reduce((s,it)=>s+(Number(it.requested)||0),0);
-  document.getElementById('scanTotal').textContent = `${tot}/${req} unidades`;
+  document.getElementById('scanTotal').textContent = SCAN.order.urgente ? `URGENTE · ${tot} unidades` : `${tot}/${req} unidades`;
+  if(SCAN.order.urgente && !SCAN.order.items.length) el.innerHTML = '<div class="scan-help">Escanea la primera botella. Lo que escanees se va apuntando aquí.</div>';
 }
 
 function setScanStatus(text, kind){
@@ -3565,6 +3584,24 @@ async function closeScanner(){
   renderWarehouseList(true);
 }
 document.getElementById('scanCloseBtn').addEventListener('click', closeScanner);
+
+// ---------- Salida urgente: se escanea sin pedido previo ----------
+(function(){
+  const sel = document.getElementById('urgPerson');
+  sel.innerHTML = '<option value="">¿Quién se lo lleva?</option>' + PERSONS.map(n=>`<option>${n}</option>`).join('') + '<option value="OTRO">OTRO</option>';
+  document.getElementById('urgBtn').addEventListener('click', async ()=>{
+    const note = document.getElementById('urgNote');
+    const person = sel.value;
+    if(!person){ note.textContent = 'Elige primero quién se lo lleva.'; return; }
+    note.textContent = '';
+    const order = { id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`, person, createdAt:new Date().toISOString(),
+                    obs:'SALIDA URGENTE (sin pedido)', urgente:true, items:[] };
+    await addPendingOrder(order);
+    sel.value = '';
+    await renderWarehouseList(true);
+    openScanner(order);
+  });
+})();
 document.getElementById('photoOverlayClose').addEventListener('click', ()=>document.getElementById('photoOverlay').classList.add('hidden'));
 
 // ---- Arranque ----
