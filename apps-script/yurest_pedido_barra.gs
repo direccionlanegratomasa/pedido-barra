@@ -312,3 +312,9 @@ function pbYurestSumarDias_(ymd, dias){
   const d = new Date(Date.UTC(p[0], p[1]-1, p[2] + dias, 12));
   return Utilities.formatDate(d, 'UTC', 'yyyy-MM-dd');
 }
+
+// Fecha de arranque: inventario manual del 17/11/2026. Se traen los albaranes creados desde el 17/11 (incluye el de Bordino que llegó después del inventario).
+function pbYurestFijarInicio(){
+  PropertiesService.getScriptProperties().setProperty('PB_YUREST_DESDE', '2026-11-17');
+  Logger.log('PB_YUREST_DESDE = ' + PropertiesService.getScriptProperties().getProperty('PB_YUREST_DESDE'));
+}
