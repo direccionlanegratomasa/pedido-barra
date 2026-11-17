@@ -909,7 +909,7 @@
 
       <div id="adminWarehouseTab" class="hidden">
         <p class="label-row">Salida urgente (sin pedido)</p>
-        <div class="admin-note">Para una urgencia: escaneas directamente lo que sale, haces la foto y se descuenta. Queda registrado como «urgente» con quién se lo lleva.</div>
+        <div class="admin-note">Para una urgencia: escaneas directamente lo que sale y se descuenta. Queda registrado como «urgente» con quién se lo lleva.</div>
         <div class="admin-add-row" style="margin-top:8px;">
           <select id="urgPerson"></select>
           <button id="urgBtn" class="btn-solid dl-big" type="button">⚡ Escanear salida urgente</button>
@@ -3248,30 +3248,6 @@ function buildOrderCard(order){
   scanBtn.addEventListener('click', ()=>openScanner(order));
   actions.appendChild(scanBtn);
 
-  // Foto obligatoria
-  const photoLabel = document.createElement('label');
-  photoLabel.className = 'btn-ghost dl-big dl-photo-btn';
-  const hasPhoto = !!pendingPhotos[order.id];
-  photoLabel.textContent = hasPhoto ? '✓ Foto hecha (repetir)' : '📸 Foto de todo lo que sale';
-  const photoInput = document.createElement('input');
-  photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.setAttribute('capture','environment');
-  photoInput.className = 'hidden';
-  photoInput.addEventListener('change', async ()=>{
-    const f = photoInput.files && photoInput.files[0];
-    if(!f) return;
-    photoLabel.textContent = 'Preparando foto...';
-    try{ pendingPhotos[order.id] = await photoToDataUrl(f); }
-    catch(e){ warehouseNote.textContent = 'No se pudo leer la foto. Prueba otra vez.'; }
-    renderWarehouseList(true);
-  });
-  photoLabel.appendChild(photoInput);
-  actions.appendChild(photoLabel);
-  if(hasPhoto){
-    const thumb = document.createElement('img');
-    thumb.src = pendingPhotos[order.id]; thumb.className = 'dl-thumb'; thumb.alt = 'Foto de la entrega';
-    actions.appendChild(thumb);
-  }
-
   const msg = document.createElement('div'); msg.className = 'admin-warn';
   const confirmBtn = document.createElement('button');
   confirmBtn.className = 'btn-solid dl-big';
@@ -3299,7 +3275,6 @@ async function confirmDelivery(order, btn, msg){
   msg.textContent = '';
   const total = order.items.reduce((s,it)=>s+itemDelivered(it),0);
   if(total===0){ msg.textContent = 'Todavía no se ha escaneado ninguna botella.'; return; }
-  if(!pendingPhotos[order.id]){ msg.textContent = 'Falta la foto de todo lo que sale.'; return; }
   if(archivingOrderIds.has(order.id)) return;
   const diffs = order.urgente ? [] : order.items.filter(it=>itemDelivered(it)!==(Number(it.requested)||0))
     .map(it=>`${it.name}: pedido ${it.requested}, sale ${itemDelivered(it)}`);
@@ -3310,16 +3285,9 @@ async function confirmDelivery(order, btn, msg){
   if(!confirm(text)) return;
   if(archivingOrderIds.has(order.id)) return;
   archivingOrderIds.add(order.id);
-  btn.disabled = true; btn.textContent = 'Guardando foto...';
+  btn.disabled = true;
   try{
-    // 1) Primero la foto: si no se guarda, no se descuenta nada.
-    try{
-      await savePhoto(order.id, pendingPhotos[order.id], { persona: order.person, unidades: total });
-    }catch(e){
-      msg.textContent = 'No se pudo guardar la foto (¿sin conexión?). No se ha descontado nada. Prueba otra vez.';
-      return;
-    }
-    // 2) Comprobar que el pedido sigue pendiente (otro movil podria haberlo confirmado)
+    // Comprobar que el pedido sigue pendiente (otro movil podria haberlo confirmado)
     const fresh = await loadPendingOrders();
     if(!fresh.some(x=>x.id===order.id)){ msg.textContent = 'Este pedido ya lo confirmó otro dispositivo.'; renderWarehouseList(); return; }
     btn.textContent = 'Descontando...';
@@ -3340,11 +3308,11 @@ async function confirmDelivery(order, btn, msg){
       });
     }
     renderProducts();
-    await addArchivedOrder({ ...order, foto: true, entregadoEn: new Date().toISOString() });
+    await addArchivedOrder({ ...order, entregadoEn: new Date().toISOString() });
     const after = await loadPendingOrders();
     await savePendingOrders(after.filter(x=>x.id!==order.id));
     delete pendingPhotos[order.id];
-    warehouseNote.textContent = `Pedido de ${order.person} entregado: ${total} uds descontadas y foto guardada.`;
+    warehouseNote.textContent = `Pedido de ${order.person} entregado: ${total} uds descontadas.`;
     renderWarehouseList();
   }finally{
     archivingOrderIds.delete(order.id);
