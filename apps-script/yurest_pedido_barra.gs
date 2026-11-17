@@ -28,7 +28,7 @@
  * Funciones para ejecutar a mano:
  *   pbYurestProbar       Solo lectura: dice qué proveedores y albaranes ve.
  *   pbYurestSincronizar  Una pasada real (la que ejecuta el reloj).
- *   pbYurestProgramar    UNA vez: reloj cada 15 minutos.
+ *   pbYurestProgramar    UNA vez: reloj diario hacia las 06:30.
  *   pbYurestParar        Quita el reloj.
  *
  * Sin claves en este archivo: la clave de Firebase de abajo es la misma
@@ -136,8 +136,8 @@ function pbYurestSincronizar(){
 
 function pbYurestProgramar(){
   pbYurestParar();
-  ScriptApp.newTrigger('pbYurestSincronizar').timeBased().everyMinutes(15).create();
-  Logger.log('Reloj creado: pbYurestSincronizar cada 15 minutos.');
+  ScriptApp.newTrigger('pbYurestSincronizar').timeBased().everyDays(1).atHour(6).nearMinute(30).inTimezone('Europe/Madrid').create();
+  Logger.log('Reloj creado: pbYurestSincronizar una vez al día, hacia las 06:30 (hora de Madrid).');
   pbYurestSincronizar();
 }
 
