@@ -805,6 +805,11 @@
   .scan-pm{width:52px;height:52px;font-size:30px;border:2px solid #000;background:#fff;border-radius:10px;}
   .scan-help{color:var(--text-dim);margin-top:12px;}
   .photo-full{width:100%;border:2px solid #000;border-radius:10px;}
+  .dl-row{align-items:center;flex-wrap:nowrap !important;}
+  .dl-row.over{padding-left:14px;}
+  .dl-ctr{display:flex;align-items:center;gap:8px;margin-left:auto;}
+  .dl-ctr .dl-count{min-width:64px;text-align:center;}
+  .dl-adder select{width:100%;padding:12px;font-size:20px;border:2px solid #000;border-radius:10px;}
 </style>
 </head>
 <body>
@@ -909,10 +914,10 @@
 
       <div id="adminWarehouseTab" class="hidden">
         <p class="label-row">Salida urgente (sin pedido)</p>
-        <div class="admin-note">Para una urgencia: escaneas directamente lo que sale y se descuenta. Queda registrado como «urgente» con quién se lo lleva.</div>
+        <div class="admin-note">Para una urgencia sin pedido: eliges quién se lo lleva, añades los productos, marcas con + cuántos salen y confirmas. Queda registrado como «urgente» con quién se lo lleva.</div>
         <div class="admin-add-row" style="margin-top:8px;">
           <select id="urgPerson"></select>
-          <button id="urgBtn" class="btn-solid dl-big" type="button">⚡ Escanear salida urgente</button>
+          <button id="urgBtn" class="btn-solid dl-big" type="button">⚡ Nueva salida urgente</button>
         </div>
         <div id="urgNote" class="admin-warn"></div>
 
@@ -1008,18 +1013,6 @@
 </div>
 
 
-<!-- ---- Escáner de entrega ---- -->
-<div id="scanOverlay" class="scan-overlay hidden">
-  <div class="scan-top">
-    <div><b>Entrega:</b> <span id="scanWho"></span> · <span id="scanTotal"></span></div>
-    <button id="scanCloseBtn" class="btn-solid">Terminar</button>
-  </div>
-  <video id="scanVideo" playsinline muted autoplay></video>
-  <div id="scanStatus" class="scan-status"></div>
-  <div id="scanUnknown" class="scan-unknown hidden"></div>
-  <div id="scanList" class="scan-list"></div>
-  <div class="scan-help">Una botella cada vez. Si una se cuenta dos veces, pulsa −. Lo que no tiene código se suma con +, y queda marcado como «a mano».</div>
-</div>
 <div id="photoOverlay" class="scan-overlay hidden">
   <div class="scan-top"><span id="photoOverlayNote"></span><button id="photoOverlayClose" class="btn-solid">Cerrar</button></div>
   <img id="photoOverlayImg" class="photo-full" alt="Foto de la entrega">
@@ -3125,7 +3118,6 @@ document.getElementById('yurestMapBtn').addEventListener('click', async ()=>{
 //    vuelve a contar hasta que desaparece de la imagen un momento.
 const BARCODE_MAP_KEY = 'codigos-barras';
 const PHOTOS_COLLECTION = 'pedido-barra-fotos';
-const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
 let barcodeMap = {};          // codigo -> {producto, factor}
 
 function eEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -3231,22 +3223,61 @@ function buildOrderCard(order){
   card.appendChild(head);
   if(order.obs){ const o = document.createElement('div'); o.className='wh-obs'; o.textContent = `Obs: ${order.obs}`; card.appendChild(o); }
 
-  order.items.forEach(item=>{
-    const d = itemDelivered(item), r = Number(item.requested)||0;
+  const totalBadge = head.querySelector('.wh-badge');
+  const refreshTotals = ()=>{
+    const td = order.items.reduce((s,it)=>s+itemDelivered(it),0);
+    totalBadge.textContent = order.urgente ? `URGENTE · ${td} uds` : `${td}/${totalReq} uds`;
+    totalBadge.classList.toggle('done', td>0);
+  };
+  const list = document.createElement('div');
+  card.appendChild(list);
+  const addRow = (item)=>{
     const row = document.createElement('div');
-    row.className = 'wh-item dl-row' + (order.urgente ? '' : (d===r ? ' ok' : (d>r ? ' over' : '')));
-    const how = (item.manual ? ` · ${item.manual} a mano` : '');
-    row.innerHTML = `<div class="wh-item-name">${eEsc(item.name)}<div class="wh-item-req">${order.urgente ? 'Escaneado' : 'Pedido ' + r}${how}</div></div>
-      <div class="dl-count">${d}${order.urgente ? '' : `<small>/${r}</small>`}</div>`;
-    card.appendChild(row);
-  });
+    const name = document.createElement('div'); name.className = 'wh-item-name';
+    const r = Number(item.requested)||0;
+    name.innerHTML = `${eEsc(item.name)}<div class="wh-item-req">${order.urgente ? 'Salida urgente' : (r ? 'Pedido ' + r : 'No estaba en el pedido')}</div>`;
+    const ctr = document.createElement('div'); ctr.className = 'dl-ctr';
+    const minus = document.createElement('button'); minus.type='button'; minus.className='scan-pm'; minus.textContent='−';
+    const num = document.createElement('div'); num.className = 'dl-count';
+    const plus = document.createElement('button'); plus.type='button'; plus.className='scan-pm'; plus.textContent='+';
+    const paint = ()=>{
+      const d = itemDelivered(item);
+      num.innerHTML = `${d}${order.urgente ? '' : `<small>/${r}</small>`}`;
+      row.className = 'wh-item dl-row' + (order.urgente ? '' : (d===r ? ' ok' : (d>r ? ' over' : '')));
+      refreshTotals();
+      const w = card.querySelector('.dl-actions .admin-warn'); if(w) w.textContent = '';
+    };
+    minus.addEventListener('click', ()=>{
+      if(item.manual>0) item.manual--; else if(item.scan>0) item.scan--; else return;
+      paint(); persistOrderCounts(order);
+    });
+    plus.addEventListener('click', ()=>{ item.manual = (Number(item.manual)||0) + 1; paint(); persistOrderCounts(order); });
+    ctr.appendChild(minus); ctr.appendChild(num); ctr.appendChild(plus);
+    row.appendChild(name); row.appendChild(ctr);
+    list.appendChild(row);
+    paint();
+  };
+  order.items.forEach(addRow);
 
   const actions = document.createElement('div');
   actions.className = 'dl-actions';
-  const scanBtn = document.createElement('button');
-  scanBtn.className = 'btn-solid dl-big'; scanBtn.textContent = '📷 Escanear botellas';
-  scanBtn.addEventListener('click', ()=>openScanner(order));
-  actions.appendChild(scanBtn);
+
+  // Salida urgente (o algo que no estaba en el pedido): añadir producto
+  const adder = document.createElement('div'); adder.className = 'dl-adder';
+  const sel = document.createElement('select');
+  const fillSel = ()=>{
+    const names = order.items.map(it=>it.name);
+    sel.innerHTML = `<option value="">${order.urgente ? '+ Añadir producto que sale…' : '+ Añadir algo que no estaba en el pedido…'}</option>` +
+      [...PRODUCTS].sort((a,b)=>a.name.localeCompare(b.name)).filter(p=>!names.includes(p.name)).map(p=>`<option>${eEsc(p.name)}</option>`).join('');
+  };
+  fillSel();
+  sel.addEventListener('change', ()=>{
+    if(!sel.value) return;
+    const item = { name: sel.value, requested:0, scan:0, manual:1, deliveredQty:0, delivered:false };
+    order.items.push(item); addRow(item); persistOrderCounts(order); fillSel();
+  });
+  adder.appendChild(sel);
+  actions.appendChild(adder);
 
   const msg = document.createElement('div'); msg.className = 'admin-warn';
   const confirmBtn = document.createElement('button');
@@ -3274,14 +3305,12 @@ function buildOrderCard(order){
 async function confirmDelivery(order, btn, msg){
   msg.textContent = '';
   const total = order.items.reduce((s,it)=>s+itemDelivered(it),0);
-  if(total===0){ msg.textContent = 'Todavía no se ha escaneado ninguna botella.'; return; }
+  if(total===0){ msg.textContent = 'Marca con + lo que sale antes de confirmar.'; return; }
   if(archivingOrderIds.has(order.id)) return;
   const diffs = order.urgente ? [] : order.items.filter(it=>itemDelivered(it)!==(Number(it.requested)||0))
     .map(it=>`${it.name}: pedido ${it.requested}, sale ${itemDelivered(it)}`);
-  const manual = order.items.filter(it=>it.manual>0).map(it=>`${it.name}: ${it.manual} a mano`);
   let text = `¿Confirmar la ${order.urgente ? 'SALIDA URGENTE' : 'entrega'} de ${order.person}? Se descontarán ${total} unidades del stock.`;
   if(diffs.length) text += `\n\nNO coincide con lo pedido:\n- ` + diffs.join('\n- ');
-  if(manual.length) text += `\n\nContado a mano (sin escanear):\n- ` + manual.join('\n- ');
   if(!confirm(text)) return;
   if(archivingOrderIds.has(order.id)) return;
   archivingOrderIds.add(order.id);
@@ -3303,7 +3332,7 @@ async function confirmDelivery(order, btn, msg){
       prod.stock = resolved;
       await addStockHistoryEntry({
         type:'salida', product:prod.name, qty, previousStock: resolved + qty, newStock: resolved,
-        method: item.manual>0 ? (item.scan>0 ? 'entrega-mixta' : 'entrega-manual') : 'entrega-escaneada',
+        method: item.scan>0 ? 'entrega-mixta' : 'entrega',
         person: order.person + (order.urgente ? ' (urgente)' : '')
       });
     }
@@ -3320,240 +3349,8 @@ async function confirmDelivery(order, btn, msg){
   }
 }
 
-// ---------- Escaner ----------
-const SCAN = { order:null, stream:null, reader:null, timer:null, native:null,
-  lastCode:null, lastSeenAt:0, armed:true, pendingCode:null, audio:null, busy:false };
-const SCAN_REARM_MS = 700;   // el mismo codigo no cuenta otra vez hasta que no se ve durante 0,7 s
 
-function loadZXing(){
-  if(window.ZXing) return Promise.resolve();
-  return new Promise((resolve, reject)=>{
-    const s = document.createElement('script'); s.src = ZXING_URL;
-    s.onload = ()=>resolve(); s.onerror = ()=>reject(new Error('No se pudo cargar el lector'));
-    document.head.appendChild(s);
-  });
-}
-
-async function openScanner(order){
-  SCAN.order = order; SCAN.lastCode = null; SCAN.armed = true; SCAN.pendingCode = null;
-  barcodeMap = await loadBarcodeMap();
-  document.getElementById('scanOverlay').classList.remove('hidden');
-  document.getElementById('scanWho').textContent = order.person;
-  setScanStatus('Abriendo la cámara...', '');
-  hideUnknownPanel();
-  renderScanList();
-  try{
-    SCAN.audio = SCAN.audio || new (window.AudioContext || window.webkitAudioContext)();
-    if(SCAN.audio.state==='suspended') await SCAN.audio.resume();
-  }catch(e){}
-  try{ await startCamera(); setScanStatus('Apunta al código de barras de cada botella, una a una.', ''); }
-  catch(e){
-    console.error(e);
-    setScanStatus('No se pudo abrir la cámara. Da permiso a la cámara en el navegador o usa los botones + y −.', 'err');
-  }
-}
-
-async function startCamera(){
-  const video = document.getElementById('scanVideo');
-  const formats = ['ean_13','ean_8','upc_a','upc_e','code_128','itf'];
-  let nativeOk = false;
-  if('BarcodeDetector' in window){
-    try{
-      const sup = await window.BarcodeDetector.getSupportedFormats();
-      const use = formats.filter(f=>sup.includes(f));
-      if(use.includes('ean_13')){ SCAN.native = new window.BarcodeDetector({ formats: use }); nativeOk = true; }
-    }catch(e){}
-  }
-  // Camara trasera (iPhone y Android). Mismo bucle para los dos lectores.
-  SCAN.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
-  video.srcObject = SCAN.stream;
-  try{ await video.play(); }catch(e){}
-  let decodeFrame;
-  if(nativeOk){
-    decodeFrame = async ()=>{ const f = await SCAN.native.detect(video); return (f && f.length) ? f[0].rawValue : null; };
-  }else{
-    await loadZXing();
-    const F = ZXing.BarcodeFormat, hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.ITF]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    const mf = new ZXing.MultiFormatReader(); mf.setHints(hints);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently:true });
-    decodeFrame = async ()=>{
-      const vw = video.videoWidth, vh = video.videoHeight;
-      if(!vw || !vh) return null;
-      const k = Math.min(1, 960 / vw);                       // reduce para ir rapido en moviles
-      canvas.width = Math.round(vw*k); canvas.height = Math.round(vh*k);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      try{
-        const lum = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
-        return mf.decodeWithState(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum))).getText();
-      }catch(e){ return null; }                              // en este fotograma no hay codigo
-    };
-  }
-  const loop = async ()=>{
-    if(!SCAN.stream) return;
-    try{ const code = await decodeFrame(); if(code) onCodeSeen(code); else onNothingSeen(); }catch(e){}
-    SCAN.timer = setTimeout(loop, nativeOk ? 110 : 140);
-  };
-  loop();
-}
-
-function stopCamera(){
-  clearTimeout(SCAN.timer); SCAN.timer = null;
-  if(SCAN.stream){ SCAN.stream.getTracks().forEach(t=>t.stop()); SCAN.stream = null; }
-  const v = document.getElementById('scanVideo'); try{ v.pause(); v.srcObject = null; }catch(e){}
-}
-
-function onNothingSeen(){
-  if(!SCAN.armed && Date.now() - SCAN.lastSeenAt > SCAN_REARM_MS) SCAN.armed = true;
-}
-
-// Se llama en cada fotograma con codigo. Cuenta solo si es una lectura "nueva".
-function onCodeSeen(rawCode){
-  const code = String(rawCode||'').trim();
-  if(!code || SCAN.busy) return;
-  const now = Date.now();
-  if(code === SCAN.lastCode && !SCAN.armed){ SCAN.lastSeenAt = now; return; }   // sigue la misma botella delante
-  SCAN.lastCode = code; SCAN.lastSeenAt = now; SCAN.armed = false;
-  handleCode(code);
-}
-
-function handleCode(code){
-  const m = barcodeMap[code];
-  if(!m){ showUnknownPanel(code); return; }
-  if(m.producto === null){ setScanStatus('Código marcado como «no contar».', ''); beep(false); return; }
-  countProduct(m.producto, Number(m.factor)||1, 'scan');
-}
-
-function countProduct(name, units, how){
-  const order = SCAN.order;
-  let item = order.items.find(it=>it.name===name);
-  if(!item && order.urgente){
-    item = { name, requested:0, scan:0, manual:0, deliveredQty:0, delivered:false };
-    order.items.push(item);
-  }
-  if(!item){
-    showNotInOrder(name, units);
-    return;
-  }
-  item[how] = Math.max(0, (Number(item[how])||0) + units);
-  persistOrderCounts(order);
-  const d = itemDelivered(item), r = Number(item.requested)||0;
-  if(order.urgente){
-    setScanStatus(`+${units} ${name} → ${d}`, 'ok'); beep(true); vibrate(60);
-    renderScanList(name); return;
-  }
-  const extra = d>r ? `  ⚠ ${d-r} DE MÁS` : (d===r ? '  ✓ completo' : `  (faltan ${r-d})`);
-  setScanStatus(`+${units} ${name} → ${d}/${r}${extra}`, d>r ? 'warn' : 'ok');
-  beep(d<=r); vibrate(d<=r ? 60 : [80,60,80]);
-  renderScanList(name);
-}
-
-function showNotInOrder(name, units){
-  beep(false); vibrate([80,60,80]);
-  const p = document.getElementById('scanUnknown');
-  SCAN.busy = true;
-  p.innerHTML = `<div class="scan-q">${eEsc(name)} NO está en este pedido.</div>
-    <div class="scan-btns"><button class="btn-ghost dl-big" id="niIgnore">No sale (ignorar)</button>
-    <button class="btn-solid dl-big" id="niAdd">Sí sale: añadir al pedido</button></div>`;
-  p.classList.remove('hidden');
-  document.getElementById('niIgnore').onclick = ()=>{ hideUnknownPanel(); setScanStatus('Ignorado.', ''); };
-  document.getElementById('niAdd').onclick = ()=>{
-    SCAN.order.items.push({ name, requested:0, scan:0, manual:0, deliveredQty:0, delivered:false, añadidoAlEntregar:true });
-    hideUnknownPanel(); countProduct(name, units, 'scan');
-  };
-}
-
-function showUnknownPanel(code){
-  beep(false);
-  SCAN.busy = true; SCAN.pendingCode = code;
-  const p = document.getElementById('scanUnknown');
-  const orderNames = SCAN.order.items.map(it=>it.name);
-  const others = PRODUCTS.map(x=>x.name).filter(n=>!orderNames.includes(n)).sort((a,b)=>a.localeCompare(b));
-  p.innerHTML = `<div class="scan-q">Código nuevo <b>${eEsc(code)}</b>. ¿Qué producto es?</div>
-    <div class="scan-btns" id="unkOrderBtns"></div>
-    <select id="unkOther"><option value="">Otro producto del catálogo…</option>${others.map(n=>`<option>${eEsc(n)}</option>`).join('')}</select>
-    <label class="scan-factor">Botellas por unidad escaneada (una caja de 6 = 6): <input id="unkFactor" type="number" min="1" value="1"></label>
-    <div class="scan-btns"><button class="btn-ghost" id="unkSkip">No contar este código</button><button class="btn-ghost" id="unkCancel">Cancelar</button></div>`;
-  const wrap = p.querySelector('#unkOrderBtns');
-  orderNames.forEach(n=>{
-    const b = document.createElement('button'); b.className='btn-solid dl-big'; b.textContent = n;
-    b.onclick = ()=>assignCode(n); wrap.appendChild(b);
-  });
-  p.querySelector('#unkOther').onchange = (e)=>{ if(e.target.value) assignCode(e.target.value); };
-  p.querySelector('#unkSkip').onclick = async ()=>{ await saveBarcodeEntry(code, { producto:null, factor:0 }); hideUnknownPanel(); setScanStatus('Ese código no contará nunca.', ''); };
-  p.querySelector('#unkCancel').onclick = ()=>{ hideUnknownPanel(); setScanStatus('Apunta al código de barras de cada botella.', ''); };
-  p.classList.remove('hidden');
-}
-
-async function assignCode(name){
-  const code = SCAN.pendingCode;
-  const factor = Math.max(1, parseInt(document.getElementById('unkFactor').value,10) || 1);
-  await saveBarcodeEntry(code, { producto:name, factor });
-  hideUnknownPanel();
-  countProduct(name, factor, 'scan');
-}
-
-function hideUnknownPanel(){
-  const p = document.getElementById('scanUnknown');
-  p.classList.add('hidden'); p.innerHTML = '';
-  SCAN.busy = false; SCAN.pendingCode = null;
-}
-
-function renderScanList(highlight){
-  const el = document.getElementById('scanList');
-  el.innerHTML = '';
-  SCAN.order.items.forEach(item=>{
-    const d = itemDelivered(item), r = Number(item.requested)||0;
-    const row = document.createElement('div');
-    const urg = !!SCAN.order.urgente;
-    row.className = 'scan-row' + (urg ? '' : (d===r ? ' ok' : (d>r ? ' over' : ''))) + (item.name===highlight ? ' hl' : '');
-    row.innerHTML = `<div class="scan-name">${eEsc(item.name)}${item.manual ? `<small> · ${item.manual} a mano</small>` : ''}</div>
-      <div class="scan-n">${d}${urg ? '' : `<small>/${r}</small>`}</div>`;
-    const minus = document.createElement('button'); minus.className='scan-pm'; minus.textContent='−'; minus.title='Quitar una (corregir)';
-    const plus = document.createElement('button'); plus.className='scan-pm'; plus.textContent='+'; plus.title='Sumar una a mano (sin código)';
-    minus.onclick = ()=>{
-      // corrige primero lo contado a mano, luego lo escaneado
-      if(item.manual>0) item.manual--; else if(item.scan>0) item.scan--; else return;
-      persistOrderCounts(SCAN.order); renderScanList(item.name);
-      setScanStatus(`−1 ${item.name} → ${itemDelivered(item)}/${r}`, '');
-    };
-    plus.onclick = ()=>countProduct(item.name, 1, 'manual');
-    row.appendChild(minus); row.appendChild(plus);
-    el.appendChild(row);
-  });
-  const tot = SCAN.order.items.reduce((s,it)=>s+itemDelivered(it),0);
-  const req = SCAN.order.items.reduce((s,it)=>s+(Number(it.requested)||0),0);
-  document.getElementById('scanTotal').textContent = SCAN.order.urgente ? `URGENTE · ${tot} unidades` : `${tot}/${req} unidades`;
-  if(SCAN.order.urgente && !SCAN.order.items.length) el.innerHTML = '<div class="scan-help">Escanea la primera botella. Lo que escanees se va apuntando aquí.</div>';
-}
-
-function setScanStatus(text, kind){
-  const s = document.getElementById('scanStatus');
-  s.textContent = text; s.className = 'scan-status' + (kind ? ' ' + kind : '');
-}
-function beep(good){
-  try{
-    const a = SCAN.audio; if(!a) return;
-    const o = a.createOscillator(), g = a.createGain();
-    o.frequency.value = good ? 1400 : 300; g.gain.value = 0.15;
-    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + (good ? 0.09 : 0.3));
-  }catch(e){}
-}
-function vibrate(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
-
-async function closeScanner(){
-  stopCamera();
-  hideUnknownPanel();
-  document.getElementById('scanOverlay').classList.add('hidden');
-  if(SCAN.order) await persistOrderCounts(SCAN.order);
-  SCAN.order = null;
-  renderWarehouseList(true);
-}
-document.getElementById('scanCloseBtn').addEventListener('click', closeScanner);
-
-// ---------- Salida urgente: se escanea sin pedido previo ----------
+// ---------- Salida urgente: sin pedido previo ----------
 (function(){
   const sel = document.getElementById('urgPerson');
   sel.innerHTML = '<option value="">¿Quién se lo lleva?</option>' + PERSONS.map(n=>`<option>${n}</option>`).join('') + '<option value="OTRO">OTRO</option>';
@@ -3567,7 +3364,7 @@ document.getElementById('scanCloseBtn').addEventListener('click', closeScanner);
     await addPendingOrder(order);
     sel.value = '';
     await renderWarehouseList(true);
-    openScanner(order);
+    document.getElementById('urgNote').textContent = `Salida urgente de ${person} creada: añade abajo los productos que salen y confirma.`;
   });
 })();
 document.getElementById('photoOverlayClose').addEventListener('click', ()=>document.getElementById('photoOverlay').classList.add('hidden'));
