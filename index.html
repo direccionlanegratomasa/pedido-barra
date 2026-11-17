@@ -771,6 +771,40 @@
   .yu-done{padding:8px 0;border-bottom:1px solid #000;}
   .tab-count{display:inline-block;background:#fff;color:#000;border:2px solid #000;border-radius:999px;padding:0 8px;margin-left:6px;}
   .admin-tab-btn:not(.active) .tab-count{background:#000;color:#fff;}
+
+  /* Entrega con escáner */
+  .dl-row .dl-count{font-size:30px;font-weight:bold;white-space:nowrap;}
+  .dl-row .dl-count small{font-size:20px;color:var(--text-dim);}
+  .dl-row.ok .dl-count::after{content:" ✓";}
+  .dl-row.over{box-shadow:inset 6px 0 0 #000;}
+  .dl-row.over .dl-count::after{content:" ⚠";}
+  .dl-actions{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
+  .dl-big{width:100%;padding:16px;font-size:20px;text-align:center;}
+  .dl-photo-btn{display:block;box-sizing:border-box;}
+  .dl-thumb{max-width:160px;border:2px solid #000;border-radius:8px;}
+  .scan-overlay{position:fixed;inset:0;background:#fff;color:#000;z-index:80;overflow-y:auto;padding:12px 14px calc(16px + env(safe-area-inset-bottom));box-sizing:border-box;}
+  .scan-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+  #scanVideo{width:100%;max-height:38vh;object-fit:cover;background:#000;border-radius:12px;display:block;}
+  .scan-status{margin:10px 0;padding:12px;border:3px solid #000;border-radius:10px;font-size:22px;font-weight:bold;min-height:30px;}
+  .scan-status.ok{background:#000;color:#fff;}
+  .scan-status.warn{background:#fff;border-style:dashed;}
+  .scan-status.err{border-style:dashed;}
+  .scan-unknown{border:3px solid #000;border-radius:12px;padding:12px;margin-bottom:10px;}
+  .scan-q{font-size:22px;margin-bottom:10px;}
+  .scan-btns{display:flex;flex-direction:column;gap:8px;margin:8px 0;}
+  .scan-unknown select,.scan-unknown input{width:100%;padding:12px;font-size:20px;border:2px solid #000;border-radius:10px;box-sizing:border-box;}
+  .scan-factor{display:block;margin:8px 0;}
+  .scan-row{display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:2px solid #000;}
+  .scan-row.hl{background:#E6E6E6;}
+  .scan-row.over{box-shadow:inset 6px 0 0 #000;}
+  .scan-name{flex:1;font-weight:bold;}
+  .scan-name small{font-weight:normal;color:var(--text-dim);}
+  .scan-n{font-size:30px;font-weight:bold;min-width:70px;text-align:right;}
+  .scan-n small{font-size:20px;color:var(--text-dim);}
+  .scan-row.ok .scan-n::after{content:" ✓";}
+  .scan-pm{width:52px;height:52px;font-size:30px;border:2px solid #000;background:#fff;border-radius:10px;}
+  .scan-help{color:var(--text-dim);margin-top:12px;}
+  .photo-full{width:100%;border:2px solid #000;border-radius:10px;}
 </style>
 </head>
 <body>
@@ -965,6 +999,23 @@
   </div>
 </div>
 
+
+<!-- ---- Escáner de entrega ---- -->
+<div id="scanOverlay" class="scan-overlay hidden">
+  <div class="scan-top">
+    <div><b>Entrega:</b> <span id="scanWho"></span> · <span id="scanTotal"></span></div>
+    <button id="scanCloseBtn" class="btn-solid">Terminar</button>
+  </div>
+  <video id="scanVideo" playsinline muted autoplay></video>
+  <div id="scanStatus" class="scan-status"></div>
+  <div id="scanUnknown" class="scan-unknown hidden"></div>
+  <div id="scanList" class="scan-list"></div>
+  <div class="scan-help">Una botella cada vez. Si una se cuenta dos veces, pulsa −. Lo que no tiene código se suma con +, y queda marcado como «a mano».</div>
+</div>
+<div id="photoOverlay" class="scan-overlay hidden">
+  <div class="scan-top"><span id="photoOverlayNote"></span><button id="photoOverlayClose" class="btn-solid">Cerrar</button></div>
+  <img id="photoOverlayImg" class="photo-full" alt="Foto de la entrega">
+</div>
 <script>
 
 // ========== ANTHROPIC: lectura de albaranes por foto (OCR con IA) ==========
@@ -2062,196 +2113,6 @@ function fmtOrderDate(iso){
 // descontaria el stock dos veces para el mismo pedido).
 const archivingOrderIds = new Set();
 
-async function renderWarehouseList(preserveScroll){
-  const modal = document.getElementById('adminModal');
-  const scrollY = (preserveScroll && modal) ? modal.scrollTop : null;
-
-  if(!preserveScroll){
-    warehouseList.innerHTML = '<div class="wh-empty">Cargando pedidos...</div>';
-  }
-  const orders = await loadPendingOrders();
-  orders.sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
-
-  if(orders.length===0){
-    warehouseList.innerHTML = '<div class="wh-empty">No hay pedidos pendientes de entrega.</div>';
-    if(scrollY!=null) modal.scrollTop = scrollY;
-    return;
-  }
-
-  warehouseList.innerHTML = '';
-  orders.forEach((order)=>{
-    const allDelivered = order.items.every(it=>it.delivered);
-
-    const card = document.createElement('div');
-    card.className = 'wh-order' + (allDelivered ? ' complete' : '');
-
-    const head = document.createElement('div');
-    head.className = 'wh-order-head';
-    head.innerHTML = `
-      <span class="wh-order-person">${order.person}</span>
-      <span class="wh-badge ${allDelivered?'done':''}">${allDelivered?'Entregado':'Pendiente'}</span>
-      <span class="wh-order-date">${fmtOrderDate(order.createdAt)}</span>
-    `;
-    card.appendChild(head);
-
-    if(order.obs){
-      const obsEl = document.createElement('div');
-      obsEl.className = 'wh-obs';
-      obsEl.textContent = `Obs: ${order.obs}`;
-      card.appendChild(obsEl);
-    }
-
-    order.items.forEach((item)=>{
-      const row = document.createElement('div');
-      row.className = 'wh-item';
-
-      const nameEl = document.createElement('div');
-      nameEl.className = 'wh-item-name';
-      nameEl.textContent = item.name;
-
-      const reqEl = document.createElement('div');
-      reqEl.className = 'wh-item-req';
-      reqEl.textContent = `Pedido: ${item.requested}`;
-
-      const qtyInput = document.createElement('input');
-      qtyInput.type = 'number';
-      qtyInput.min = '0';
-      qtyInput.value = item.deliveredQty;
-      qtyInput.disabled = item.delivered;
-
-      const check = document.createElement('input');
-      check.type = 'checkbox';
-      check.checked = item.delivered;
-      check.title = 'Marcar como entregado';
-
-      qtyInput.addEventListener('change', async ()=>{
-        const v = Math.max(0, parseInt(qtyInput.value,10) || 0);
-        qtyInput.value = v;
-        item.deliveredQty = v;
-        const fresh = await loadPendingOrders();
-        const o = fresh.find(x=>x.id===order.id);
-        if(o){
-          const it = o.items.find(x=>x.name===item.name);
-          if(it) it.deliveredQty = v;
-          await savePendingOrders(fresh);
-        }
-      });
-
-      check.addEventListener('change', async ()=>{
-        const deliverNow = check.checked;
-        const qty = Math.max(0, parseInt(qtyInput.value,10) || 0);
-
-        // El check solo marca la linea como "lista". El stock y el registro de
-        // salida en el historico se aplican al ARCHIVAR el pedido completo, no
-        // aqui — asi evitamos contar salidas de pedidos que luego se corrigen,
-        // duplican o eliminan antes de quedar totalmente atendidos.
-        item.delivered = deliverNow;
-        item.deliveredQty = qty;
-        qtyInput.disabled = deliverNow;
-
-        const fresh = await loadPendingOrders();
-        const o = fresh.find(x=>x.id===order.id);
-        if(o){
-          const it = o.items.find(x=>x.name===item.name);
-          if(it){ it.delivered = deliverNow; it.deliveredQty = qty; }
-          await savePendingOrders(fresh);
-        }
-        renderWarehouseList(true);
-      });
-
-      row.appendChild(nameEl);
-      row.appendChild(reqEl);
-      row.appendChild(qtyInput);
-      row.appendChild(check);
-      card.appendChild(row);
-    });
-
-    if(allDelivered){
-      const archiveBtn = document.createElement('button');
-      archiveBtn.className = 'btn-solid small';
-      archiveBtn.style.marginTop = '10px';
-      archiveBtn.textContent = 'Confirmar entrega y archivar';
-      archiveBtn.addEventListener('click', async ()=>{
-        if(archivingOrderIds.has(order.id)) return; // ya se esta procesando, ignora clics repetidos
-        if(!confirm(`¿Confirmar que el pedido de ${order.person} se entregó completo? Esto descontará el stock de cada producto y quedará registrado en el histórico.`)) return;
-        if(archivingOrderIds.has(order.id)) return; // por si se pulso otra vez mientras el confirm estaba abierto
-
-        archivingOrderIds.add(order.id);
-        archiveBtn.disabled = true;
-        archiveBtn.textContent = 'Procesando...';
-
-        try{
-          // Solo AHORA, con el pedido totalmente atendido, se descuenta el stock
-          // real y se deja constancia en el historico — nunca antes, para no
-          // registrar salidas de pedidos que pudieran corregirse o eliminarse.
-          // IMPORTANTE: usamos un incremento atomico contra el servidor (no
-          // "leo el numero, resto, guardo el numero") para que si otro
-          // dispositivo esta tocando el mismo producto casi a la vez, ningun
-          // cambio se pierda ni se sobreescriba por accidente.
-          for(const item of order.items){
-            const prod = PRODUCTS.find(p=>p.name===item.name);
-            if(prod && prod.stock!=null){
-              const newStock = await fsIncrementProductStock(prod.name, -item.deliveredQty);
-              // Derivamos el "antes" a partir del valor real posterior (atomico),
-              // no de la copia local, para que el historico sea siempre exacto
-              // aunque este dispositivo tuviera un numero desactualizado.
-              const resolvedNewStock = (newStock!=null) ? newStock : (prod.stock - item.deliveredQty);
-              const previousStock = resolvedNewStock + item.deliveredQty;
-              prod.stock = resolvedNewStock;
-              await addStockHistoryEntry({
-                type: 'salida',
-                product: prod.name,
-                qty: item.deliveredQty,
-                previousStock,
-                newStock: resolvedNewStock,
-                method: 'entrega',
-                person: order.person
-              });
-            }
-          }
-          renderProducts();
-          renderStockHistory();
-
-          await addArchivedOrder(order); // registro permanente para poder auditar por dia
-
-          const fresh = await loadPendingOrders();
-          const remaining = fresh.filter(x=>x.id!==order.id);
-          await savePendingOrders(remaining);
-          warehouseNote.textContent = `Pedido de ${order.person} confirmado, archivado y stock actualizado.`;
-          renderWarehouseList();
-        }finally{
-          archivingOrderIds.delete(order.id);
-        }
-      });
-      card.appendChild(archiveBtn);
-    }else{
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'btn-ghost small';
-      deleteBtn.style.marginTop = '10px';
-      deleteBtn.style.borderColor = 'var(--minus)';
-      deleteBtn.style.color = 'var(--minus)';
-      deleteBtn.textContent = 'Eliminar pedido';
-      deleteBtn.addEventListener('click', async ()=>{
-        // Como el stock solo se descuenta al archivar (pedido ya atendido del
-        // todo), eliminar un pedido pendiente o parcial es siempre seguro: no
-        // ha tocado el stock ni el historico todavia.
-        const msg = `¿Eliminar el pedido de ${order.person} (${fmtOrderDate(order.createdAt)})? Esta acción no se puede deshacer.`;
-        if(!confirm(msg)) return;
-        const fresh = await loadPendingOrders();
-        const remaining = fresh.filter(x=>x.id!==order.id);
-        await savePendingOrders(remaining);
-        warehouseNote.textContent = `Pedido de ${order.person} eliminado.`;
-        renderWarehouseList(true);
-      });
-      card.appendChild(deleteBtn);
-    }
-
-    warehouseList.appendChild(card);
-  });
-
-  if(scrollY!=null) modal.scrollTop = scrollY;
-}
-
 // ========== RECEPCIÓN DE MERCANCÍA (sumar stock) ==========
 
 // Rellena el <datalist> con todos los nombres del catálogo, para autocompletar
@@ -2267,7 +2128,7 @@ function refreshProductDatalist(){
 }
 
 // ---- Render del historico de movimientos de stock (entradas y salidas) ----
-const METHOD_LABEL = { manual: 'Manual', albaran: 'Albarán', entrega: 'Entrega pedido', yurest: 'Yurest', inventario: 'Inventario' };
+const METHOD_LABEL = { manual: 'Manual', albaran: 'Albarán', entrega: 'Entrega pedido', yurest: 'Yurest', inventario: 'Inventario', 'entrega-escaneada': 'Entrega escaneada', 'entrega-manual': 'Entrega a mano', 'entrega-mixta': 'Entrega (parte a mano)' };
 
 async function renderStockHistory(filter){
   const listEl = document.getElementById('stockHistoryList');
@@ -2629,7 +2490,7 @@ async function renderArchivedOrders(filter){
       card.className = 'arch-order';
 
       const totalUnits = order.items.reduce((s,it)=>s + (it.deliveredQty||0), 0);
-      const itemsText = order.items.map(it=>`${it.name}: ${it.deliveredQty}`).join(' · ');
+      const itemsText = order.items.map(it=>`${it.name}: ${it.deliveredQty}` + (it.manual ? ` (${it.manual} a mano)` : '') + (it.requested!=null && it.deliveredQty!==it.requested ? ` [pedido ${it.requested}]` : '')).join(' · ');
 
       card.innerHTML = `
         <div class="arch-order-head">
@@ -2638,6 +2499,12 @@ async function renderArchivedOrders(filter){
         </div>
         <div class="arch-order-items">${itemsText} — <b>${order.items.length} productos, ${totalUnits} unidades</b></div>
       `;
+      if(order.foto){
+        const fb = document.createElement('button');
+        fb.className = 'btn-ghost small'; fb.style.marginTop = '8px'; fb.textContent = 'Ver foto de la entrega';
+        fb.addEventListener('click', ()=>showPhoto(order.id));
+        card.appendChild(fb);
+      }
       dayWrap.appendChild(card);
     });
 
@@ -3237,6 +3104,469 @@ document.getElementById('yurestMapBtn').addEventListener('click', async ()=>{
   if(show){ yurestMap = await loadYurestMap(); renderYurestMapList(); }
 });
 
+// ========== ENTREGA DE PEDIDOS: ESCANER DE BOTELLAS + FOTO OBLIGATORIA ==========
+// Quien entrega escanea el codigo de barras de cada botella que sale del
+// almacen. Solo se descuenta lo escaneado (o lo contado a mano, que queda
+// marcado como tal). Antes de confirmar hay que hacer una foto de todo lo que
+// sale, que se guarda con el pedido para poder revisarlo despues.
+//  - iPhone y Android: camara desde la propia web (lector nativo del navegador
+//    si existe; si no, la libreria ZXing).
+//  - Codigos nuevos: la primera vez se dice que producto es (y si es una caja,
+//    cuantas botellas trae). Se recuerda para siempre en `codigos-barras`.
+//  - Una botella delante de la camara solo cuenta UNA vez: el mismo codigo no
+//    vuelve a contar hasta que desaparece de la imagen un momento.
+const BARCODE_MAP_KEY = 'codigos-barras';
+const PHOTOS_COLLECTION = 'pedido-barra-fotos';
+const ZXING_URL = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
+let barcodeMap = {};          // codigo -> {producto, factor}
+
+function eEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function itemDelivered(it){ return (Number(it.scan)||0) + (Number(it.manual)||0); }
+
+async function loadBarcodeMap(){
+  try{
+    const res = await window.storage.get(BARCODE_MAP_KEY, true);
+    if(res && res.value){ const o = JSON.parse(res.value); if(o && typeof o==='object') return o; }
+  }catch(e){}
+  return {};
+}
+async function saveBarcodeEntry(code, entry){
+  const current = await loadBarcodeMap();   // relee para no pisar lo de otro movil
+  current[code] = entry;
+  await window.storage.set(BARCODE_MAP_KEY, JSON.stringify(current), true);
+  barcodeMap = current;
+}
+
+// Guarda en la cola de pendientes los contadores de UN pedido (relee antes).
+async function persistOrderCounts(order){
+  const fresh = await loadPendingOrders();
+  const o = fresh.find(x=>x.id===order.id);
+  if(!o) return false;
+  o.items = order.items.map(it=>({ ...it, deliveredQty: itemDelivered(it) }));
+  await savePendingOrders(fresh);
+  return true;
+}
+
+// ---------- Foto (comprimida para que quepa en la base de datos) ----------
+function compressPhoto(file, maxSide, quality){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('No se pudo leer la foto')); };
+    img.src = url;
+  });
+}
+async function photoToDataUrl(file){
+  let data = await compressPhoto(file, 1400, 0.6);
+  if(data.length > 750000) data = await compressPhoto(file, 1000, 0.5);   // limite de 1 MB por documento
+  if(data.length > 750000) data = await compressPhoto(file, 800, 0.45);
+  return data;
+}
+async function savePhoto(orderId, dataUrl, meta){
+  if(!db) throw new Error('Sin conexión con la base de datos');
+  await db.collection(PHOTOS_COLLECTION).doc(orderId).set({ img: dataUrl, fecha: new Date().toISOString(), ...meta });
+}
+async function showPhoto(orderId){
+  const ov = document.getElementById('photoOverlay');
+  const img = document.getElementById('photoOverlayImg');
+  const note = document.getElementById('photoOverlayNote');
+  img.removeAttribute('src'); note.textContent = 'Cargando foto...';
+  ov.classList.remove('hidden');
+  try{
+    const snap = await db.collection(PHOTOS_COLLECTION).doc(orderId).get();
+    if(!snap.exists){ note.textContent = 'Este pedido no tiene foto.'; return; }
+    img.src = snap.data().img; note.textContent = fmtOrderDate(snap.data().fecha);
+  }catch(e){ note.textContent = 'No se pudo cargar la foto.'; }
+}
+
+// ---------- Lista de pedidos pendientes ----------
+const pendingPhotos = {}; // orderId -> dataUrl (foto hecha, aun sin confirmar)
+
+async function renderWarehouseList(preserveScroll){
+  const modal = document.getElementById('adminModal');
+  const scrollY = (preserveScroll && modal) ? modal.scrollTop : null;
+  if(!preserveScroll) warehouseList.innerHTML = '<div class="wh-empty">Cargando pedidos...</div>';
+  const orders = await loadPendingOrders();
+  orders.sort((a,b)=> new Date(a.createdAt) - new Date(b.createdAt));
+  if(orders.length===0){
+    warehouseList.innerHTML = '<div class="wh-empty">No hay pedidos pendientes de entrega.</div>';
+    if(scrollY!=null) modal.scrollTop = scrollY;
+    return;
+  }
+  warehouseList.innerHTML = '';
+  orders.forEach(order=>{
+    // Pedidos creados antes del escaner traian la cantidad rellenada: se cuenta desde cero.
+    order.items.forEach(it=>{ if(it.scan==null && it.manual==null){ it.scan = 0; it.manual = 0; } });
+    warehouseList.appendChild(buildOrderCard(order));
+  });
+  if(scrollY!=null) modal.scrollTop = scrollY;
+}
+
+function buildOrderCard(order){
+  const card = document.createElement('div');
+  card.className = 'wh-order';
+  const totalReq = order.items.reduce((s,it)=>s+(Number(it.requested)||0),0);
+  const totalDel = order.items.reduce((s,it)=>s+itemDelivered(it),0);
+  const head = document.createElement('div');
+  head.className = 'wh-order-head';
+  head.innerHTML = `<span class="wh-order-person">${eEsc(order.person)}</span>
+    <span class="wh-badge ${totalDel>0?'done':''}">${totalDel}/${totalReq} uds</span>
+    <span class="wh-order-date">${fmtOrderDate(order.createdAt)}</span>`;
+  card.appendChild(head);
+  if(order.obs){ const o = document.createElement('div'); o.className='wh-obs'; o.textContent = `Obs: ${order.obs}`; card.appendChild(o); }
+
+  order.items.forEach(item=>{
+    const d = itemDelivered(item), r = Number(item.requested)||0;
+    const row = document.createElement('div');
+    row.className = 'wh-item dl-row' + (d===r ? ' ok' : (d>r ? ' over' : ''));
+    const how = (item.manual ? ` · ${item.manual} a mano` : '');
+    row.innerHTML = `<div class="wh-item-name">${eEsc(item.name)}<div class="wh-item-req">Pedido ${r}${how}</div></div>
+      <div class="dl-count">${d}<small>/${r}</small></div>`;
+    card.appendChild(row);
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'dl-actions';
+  const scanBtn = document.createElement('button');
+  scanBtn.className = 'btn-solid dl-big'; scanBtn.textContent = '📷 Escanear botellas';
+  scanBtn.addEventListener('click', ()=>openScanner(order));
+  actions.appendChild(scanBtn);
+
+  // Foto obligatoria
+  const photoLabel = document.createElement('label');
+  photoLabel.className = 'btn-ghost dl-big dl-photo-btn';
+  const hasPhoto = !!pendingPhotos[order.id];
+  photoLabel.textContent = hasPhoto ? '✓ Foto hecha (repetir)' : '📸 Foto de todo lo que sale';
+  const photoInput = document.createElement('input');
+  photoInput.type = 'file'; photoInput.accept = 'image/*'; photoInput.setAttribute('capture','environment');
+  photoInput.className = 'hidden';
+  photoInput.addEventListener('change', async ()=>{
+    const f = photoInput.files && photoInput.files[0];
+    if(!f) return;
+    photoLabel.textContent = 'Preparando foto...';
+    try{ pendingPhotos[order.id] = await photoToDataUrl(f); }
+    catch(e){ warehouseNote.textContent = 'No se pudo leer la foto. Prueba otra vez.'; }
+    renderWarehouseList(true);
+  });
+  photoLabel.appendChild(photoInput);
+  actions.appendChild(photoLabel);
+  if(hasPhoto){
+    const thumb = document.createElement('img');
+    thumb.src = pendingPhotos[order.id]; thumb.className = 'dl-thumb'; thumb.alt = 'Foto de la entrega';
+    actions.appendChild(thumb);
+  }
+
+  const msg = document.createElement('div'); msg.className = 'admin-warn';
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'btn-solid dl-big';
+  confirmBtn.textContent = 'Confirmar entrega y descontar';
+  confirmBtn.addEventListener('click', ()=>confirmDelivery(order, confirmBtn, msg));
+  actions.appendChild(confirmBtn);
+  actions.appendChild(msg);
+
+  const del = document.createElement('button');
+  del.className = 'btn-ghost small'; del.textContent = 'Eliminar pedido';
+  del.addEventListener('click', async ()=>{
+    if(!confirm(`¿Eliminar el pedido de ${order.person} (${fmtOrderDate(order.createdAt)})? No se descuenta nada del stock.`)) return;
+    const fresh = await loadPendingOrders();
+    await savePendingOrders(fresh.filter(x=>x.id!==order.id));
+    delete pendingPhotos[order.id];
+    warehouseNote.textContent = `Pedido de ${order.person} eliminado.`;
+    renderWarehouseList(true);
+  });
+  actions.appendChild(del);
+  card.appendChild(actions);
+  return card;
+}
+
+async function confirmDelivery(order, btn, msg){
+  msg.textContent = '';
+  const total = order.items.reduce((s,it)=>s+itemDelivered(it),0);
+  if(total===0){ msg.textContent = 'Todavía no se ha escaneado ninguna botella.'; return; }
+  if(!pendingPhotos[order.id]){ msg.textContent = 'Falta la foto de todo lo que sale.'; return; }
+  if(archivingOrderIds.has(order.id)) return;
+  const diffs = order.items.filter(it=>itemDelivered(it)!==(Number(it.requested)||0))
+    .map(it=>`${it.name}: pedido ${it.requested}, sale ${itemDelivered(it)}`);
+  const manual = order.items.filter(it=>it.manual>0).map(it=>`${it.name}: ${it.manual} a mano`);
+  let text = `¿Confirmar la entrega de ${order.person}? Se descontarán ${total} unidades del stock.`;
+  if(diffs.length) text += `\n\nNO coincide con lo pedido:\n- ` + diffs.join('\n- ');
+  if(manual.length) text += `\n\nContado a mano (sin escanear):\n- ` + manual.join('\n- ');
+  if(!confirm(text)) return;
+  if(archivingOrderIds.has(order.id)) return;
+  archivingOrderIds.add(order.id);
+  btn.disabled = true; btn.textContent = 'Guardando foto...';
+  try{
+    // 1) Primero la foto: si no se guarda, no se descuenta nada.
+    try{
+      await savePhoto(order.id, pendingPhotos[order.id], { persona: order.person, unidades: total });
+    }catch(e){
+      msg.textContent = 'No se pudo guardar la foto (¿sin conexión?). No se ha descontado nada. Prueba otra vez.';
+      return;
+    }
+    // 2) Comprobar que el pedido sigue pendiente (otro movil podria haberlo confirmado)
+    const fresh = await loadPendingOrders();
+    if(!fresh.some(x=>x.id===order.id)){ msg.textContent = 'Este pedido ya lo confirmó otro dispositivo.'; renderWarehouseList(); return; }
+    btn.textContent = 'Descontando...';
+    for(const item of order.items){
+      const qty = itemDelivered(item);
+      item.deliveredQty = qty;
+      if(qty<=0) continue;
+      const prod = PRODUCTS.find(p=>p.name===item.name);
+      if(!prod) continue;
+      const newStock = await fsIncrementProductStock(prod.name, -qty);
+      const resolved = (newStock!=null) ? newStock : ((prod.stock||0) - qty);
+      prod.stock = resolved;
+      await addStockHistoryEntry({
+        type:'salida', product:prod.name, qty, previousStock: resolved + qty, newStock: resolved,
+        method: item.manual>0 ? (item.scan>0 ? 'entrega-mixta' : 'entrega-manual') : 'entrega-escaneada',
+        person: order.person
+      });
+    }
+    renderProducts();
+    await addArchivedOrder({ ...order, foto: true, entregadoEn: new Date().toISOString() });
+    const after = await loadPendingOrders();
+    await savePendingOrders(after.filter(x=>x.id!==order.id));
+    delete pendingPhotos[order.id];
+    warehouseNote.textContent = `Pedido de ${order.person} entregado: ${total} uds descontadas y foto guardada.`;
+    renderWarehouseList();
+  }finally{
+    archivingOrderIds.delete(order.id);
+    btn.disabled = false; btn.textContent = 'Confirmar entrega y descontar';
+  }
+}
+
+// ---------- Escaner ----------
+const SCAN = { order:null, stream:null, reader:null, timer:null, native:null,
+  lastCode:null, lastSeenAt:0, armed:true, pendingCode:null, audio:null, busy:false };
+const SCAN_REARM_MS = 700;   // el mismo codigo no cuenta otra vez hasta que no se ve durante 0,7 s
+
+function loadZXing(){
+  if(window.ZXing) return Promise.resolve();
+  return new Promise((resolve, reject)=>{
+    const s = document.createElement('script'); s.src = ZXING_URL;
+    s.onload = ()=>resolve(); s.onerror = ()=>reject(new Error('No se pudo cargar el lector'));
+    document.head.appendChild(s);
+  });
+}
+
+async function openScanner(order){
+  SCAN.order = order; SCAN.lastCode = null; SCAN.armed = true; SCAN.pendingCode = null;
+  barcodeMap = await loadBarcodeMap();
+  document.getElementById('scanOverlay').classList.remove('hidden');
+  document.getElementById('scanWho').textContent = order.person;
+  setScanStatus('Abriendo la cámara...', '');
+  hideUnknownPanel();
+  renderScanList();
+  try{
+    SCAN.audio = SCAN.audio || new (window.AudioContext || window.webkitAudioContext)();
+    if(SCAN.audio.state==='suspended') await SCAN.audio.resume();
+  }catch(e){}
+  try{ await startCamera(); setScanStatus('Apunta al código de barras de cada botella, una a una.', ''); }
+  catch(e){
+    console.error(e);
+    setScanStatus('No se pudo abrir la cámara. Da permiso a la cámara en el navegador o usa los botones + y −.', 'err');
+  }
+}
+
+async function startCamera(){
+  const video = document.getElementById('scanVideo');
+  const formats = ['ean_13','ean_8','upc_a','upc_e','code_128','itf'];
+  let nativeOk = false;
+  if('BarcodeDetector' in window){
+    try{
+      const sup = await window.BarcodeDetector.getSupportedFormats();
+      const use = formats.filter(f=>sup.includes(f));
+      if(use.includes('ean_13')){ SCAN.native = new window.BarcodeDetector({ formats: use }); nativeOk = true; }
+    }catch(e){}
+  }
+  // Camara trasera (iPhone y Android). Mismo bucle para los dos lectores.
+  SCAN.stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1280 }, height:{ ideal:720 } }, audio:false });
+  video.srcObject = SCAN.stream;
+  try{ await video.play(); }catch(e){}
+  let decodeFrame;
+  if(nativeOk){
+    decodeFrame = async ()=>{ const f = await SCAN.native.detect(video); return (f && f.length) ? f[0].rawValue : null; };
+  }else{
+    await loadZXing();
+    const F = ZXing.BarcodeFormat, hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E, F.CODE_128, F.ITF]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    const mf = new ZXing.MultiFormatReader(); mf.setHints(hints);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently:true });
+    decodeFrame = async ()=>{
+      const vw = video.videoWidth, vh = video.videoHeight;
+      if(!vw || !vh) return null;
+      const k = Math.min(1, 960 / vw);                       // reduce para ir rapido en moviles
+      canvas.width = Math.round(vw*k); canvas.height = Math.round(vh*k);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      try{
+        const lum = new ZXing.HTMLCanvasElementLuminanceSource(canvas);
+        return mf.decodeWithState(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum))).getText();
+      }catch(e){ return null; }                              // en este fotograma no hay codigo
+    };
+  }
+  const loop = async ()=>{
+    if(!SCAN.stream) return;
+    try{ const code = await decodeFrame(); if(code) onCodeSeen(code); else onNothingSeen(); }catch(e){}
+    SCAN.timer = setTimeout(loop, nativeOk ? 110 : 140);
+  };
+  loop();
+}
+
+function stopCamera(){
+  clearTimeout(SCAN.timer); SCAN.timer = null;
+  if(SCAN.stream){ SCAN.stream.getTracks().forEach(t=>t.stop()); SCAN.stream = null; }
+  const v = document.getElementById('scanVideo'); try{ v.pause(); v.srcObject = null; }catch(e){}
+}
+
+function onNothingSeen(){
+  if(!SCAN.armed && Date.now() - SCAN.lastSeenAt > SCAN_REARM_MS) SCAN.armed = true;
+}
+
+// Se llama en cada fotograma con codigo. Cuenta solo si es una lectura "nueva".
+function onCodeSeen(rawCode){
+  const code = String(rawCode||'').trim();
+  if(!code || SCAN.busy) return;
+  const now = Date.now();
+  if(code === SCAN.lastCode && !SCAN.armed){ SCAN.lastSeenAt = now; return; }   // sigue la misma botella delante
+  SCAN.lastCode = code; SCAN.lastSeenAt = now; SCAN.armed = false;
+  handleCode(code);
+}
+
+function handleCode(code){
+  const m = barcodeMap[code];
+  if(!m){ showUnknownPanel(code); return; }
+  if(m.producto === null){ setScanStatus('Código marcado como «no contar».', ''); beep(false); return; }
+  countProduct(m.producto, Number(m.factor)||1, 'scan');
+}
+
+function countProduct(name, units, how){
+  const order = SCAN.order;
+  let item = order.items.find(it=>it.name===name);
+  if(!item){
+    showNotInOrder(name, units);
+    return;
+  }
+  item[how] = Math.max(0, (Number(item[how])||0) + units);
+  persistOrderCounts(order);
+  const d = itemDelivered(item), r = Number(item.requested)||0;
+  const extra = d>r ? `  ⚠ ${d-r} DE MÁS` : (d===r ? '  ✓ completo' : `  (faltan ${r-d})`);
+  setScanStatus(`+${units} ${name} → ${d}/${r}${extra}`, d>r ? 'warn' : 'ok');
+  beep(d<=r); vibrate(d<=r ? 60 : [80,60,80]);
+  renderScanList(name);
+}
+
+function showNotInOrder(name, units){
+  beep(false); vibrate([80,60,80]);
+  const p = document.getElementById('scanUnknown');
+  SCAN.busy = true;
+  p.innerHTML = `<div class="scan-q">${eEsc(name)} NO está en este pedido.</div>
+    <div class="scan-btns"><button class="btn-ghost dl-big" id="niIgnore">No sale (ignorar)</button>
+    <button class="btn-solid dl-big" id="niAdd">Sí sale: añadir al pedido</button></div>`;
+  p.classList.remove('hidden');
+  document.getElementById('niIgnore').onclick = ()=>{ hideUnknownPanel(); setScanStatus('Ignorado.', ''); };
+  document.getElementById('niAdd').onclick = ()=>{
+    SCAN.order.items.push({ name, requested:0, scan:0, manual:0, deliveredQty:0, delivered:false, añadidoAlEntregar:true });
+    hideUnknownPanel(); countProduct(name, units, 'scan');
+  };
+}
+
+function showUnknownPanel(code){
+  beep(false);
+  SCAN.busy = true; SCAN.pendingCode = code;
+  const p = document.getElementById('scanUnknown');
+  const orderNames = SCAN.order.items.map(it=>it.name);
+  const others = PRODUCTS.map(x=>x.name).filter(n=>!orderNames.includes(n)).sort((a,b)=>a.localeCompare(b));
+  p.innerHTML = `<div class="scan-q">Código nuevo <b>${eEsc(code)}</b>. ¿Qué producto es?</div>
+    <div class="scan-btns" id="unkOrderBtns"></div>
+    <select id="unkOther"><option value="">Otro producto del catálogo…</option>${others.map(n=>`<option>${eEsc(n)}</option>`).join('')}</select>
+    <label class="scan-factor">Botellas por unidad escaneada (una caja de 6 = 6): <input id="unkFactor" type="number" min="1" value="1"></label>
+    <div class="scan-btns"><button class="btn-ghost" id="unkSkip">No contar este código</button><button class="btn-ghost" id="unkCancel">Cancelar</button></div>`;
+  const wrap = p.querySelector('#unkOrderBtns');
+  orderNames.forEach(n=>{
+    const b = document.createElement('button'); b.className='btn-solid dl-big'; b.textContent = n;
+    b.onclick = ()=>assignCode(n); wrap.appendChild(b);
+  });
+  p.querySelector('#unkOther').onchange = (e)=>{ if(e.target.value) assignCode(e.target.value); };
+  p.querySelector('#unkSkip').onclick = async ()=>{ await saveBarcodeEntry(code, { producto:null, factor:0 }); hideUnknownPanel(); setScanStatus('Ese código no contará nunca.', ''); };
+  p.querySelector('#unkCancel').onclick = ()=>{ hideUnknownPanel(); setScanStatus('Apunta al código de barras de cada botella.', ''); };
+  p.classList.remove('hidden');
+}
+
+async function assignCode(name){
+  const code = SCAN.pendingCode;
+  const factor = Math.max(1, parseInt(document.getElementById('unkFactor').value,10) || 1);
+  await saveBarcodeEntry(code, { producto:name, factor });
+  hideUnknownPanel();
+  countProduct(name, factor, 'scan');
+}
+
+function hideUnknownPanel(){
+  const p = document.getElementById('scanUnknown');
+  p.classList.add('hidden'); p.innerHTML = '';
+  SCAN.busy = false; SCAN.pendingCode = null;
+}
+
+function renderScanList(highlight){
+  const el = document.getElementById('scanList');
+  el.innerHTML = '';
+  SCAN.order.items.forEach(item=>{
+    const d = itemDelivered(item), r = Number(item.requested)||0;
+    const row = document.createElement('div');
+    row.className = 'scan-row' + (d===r ? ' ok' : (d>r ? ' over' : '')) + (item.name===highlight ? ' hl' : '');
+    row.innerHTML = `<div class="scan-name">${eEsc(item.name)}${item.manual ? `<small> · ${item.manual} a mano</small>` : ''}</div>
+      <div class="scan-n">${d}<small>/${r}</small></div>`;
+    const minus = document.createElement('button'); minus.className='scan-pm'; minus.textContent='−'; minus.title='Quitar una (corregir)';
+    const plus = document.createElement('button'); plus.className='scan-pm'; plus.textContent='+'; plus.title='Sumar una a mano (sin código)';
+    minus.onclick = ()=>{
+      // corrige primero lo contado a mano, luego lo escaneado
+      if(item.manual>0) item.manual--; else if(item.scan>0) item.scan--; else return;
+      persistOrderCounts(SCAN.order); renderScanList(item.name);
+      setScanStatus(`−1 ${item.name} → ${itemDelivered(item)}/${r}`, '');
+    };
+    plus.onclick = ()=>countProduct(item.name, 1, 'manual');
+    row.appendChild(minus); row.appendChild(plus);
+    el.appendChild(row);
+  });
+  const tot = SCAN.order.items.reduce((s,it)=>s+itemDelivered(it),0);
+  const req = SCAN.order.items.reduce((s,it)=>s+(Number(it.requested)||0),0);
+  document.getElementById('scanTotal').textContent = `${tot}/${req} unidades`;
+}
+
+function setScanStatus(text, kind){
+  const s = document.getElementById('scanStatus');
+  s.textContent = text; s.className = 'scan-status' + (kind ? ' ' + kind : '');
+}
+function beep(good){
+  try{
+    const a = SCAN.audio; if(!a) return;
+    const o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = good ? 1400 : 300; g.gain.value = 0.15;
+    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + (good ? 0.09 : 0.3));
+  }catch(e){}
+}
+function vibrate(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+
+async function closeScanner(){
+  stopCamera();
+  hideUnknownPanel();
+  document.getElementById('scanOverlay').classList.add('hidden');
+  if(SCAN.order) await persistOrderCounts(SCAN.order);
+  SCAN.order = null;
+  renderWarehouseList(true);
+}
+document.getElementById('scanCloseBtn').addEventListener('click', closeScanner);
+document.getElementById('photoOverlayClose').addEventListener('click', ()=>document.getElementById('photoOverlay').classList.add('hidden'));
+
 // ---- Arranque ----
 (async function init(){
   document.getElementById('genBtn').textContent = isMobileDevice() ? 'Generar y enviar por WhatsApp' : 'Generar e imprimir';
@@ -3270,7 +3600,7 @@ document.getElementById('genBtn').addEventListener('click', async ()=>{
       person: selectedPerson,
       createdAt: new Date().toISOString(),
       obs: document.getElementById('obs').value.trim(),
-      items: withQty.map(p=>({name:p.name, requested:p.qty, deliveredQty:p.qty, delivered:false}))
+      items: withQty.map(p=>({name:p.name, requested:p.qty, deliveredQty:0, scan:0, manual:0, delivered:false}))
     });
   }catch(e){ console.error('No se pudo registrar el pedido en Almacen', e); }
 
