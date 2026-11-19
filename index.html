@@ -1560,19 +1560,63 @@ async function addPendingOrder(order){
 
 // ---- Histórico de entradas de stock (fecha, producto, cantidad, origen) ----
 const STOCK_HISTORY_KEY = 'stock-history';
-
-async function loadStockHistory(){
+// El histórico y los pedidos archivados se guardan en UN documento que se
+// descarga entero cada vez. Para que no crezca sin fin (lentitud y límite de
+// 1 MB de Firestore), ahí solo quedan los últimos HIST_DIAS días; lo anterior
+// se mueve a un documento por mes: «stock-history-AAAA-MM», «archived-orders-AAAA-MM».
+const HIST_DIAS = 62;
+function histLimite(){ return Date.now() - HIST_DIAS * 86400000; }
+function mesesDesde(desde){
+  const out = [], d = new Date(desde.getFullYear(), desde.getMonth(), 1), fin = new Date();
+  while(d <= fin){ out.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`); d.setMonth(d.getMonth()+1); }
+  return out;
+}
+async function leerLista(key){
   try{
-    const res = await window.storage.get(STOCK_HISTORY_KEY, true);
-    if(res && res.value){
-      const parsed = JSON.parse(res.value);
-      if(Array.isArray(parsed)) return parsed;
-    }
-  }catch(e){ /* clave inexistente u error -> historico vacio */ }
+    const res = await window.storage.get(key, true);
+    if(res && res.value){ const parsed = JSON.parse(res.value); if(Array.isArray(parsed)) return parsed; }
+  }catch(e){}
   return [];
+}
+// Mueve a los documentos mensuales lo anterior al límite. Si no se puede
+// guardar algún mes, no se quita nada de la lista principal (no se pierde nada).
+async function rotarAntiguos(baseKey, list, fecha){
+  if(!db) return list;
+  const lim = histLimite();
+  const viejos = list.filter(e=>{ const t = new Date(fecha(e)).getTime(); return t && t < lim; });
+  if(!viejos.length) return list;
+  const porMes = {};
+  viejos.forEach(e=>{ const m = String(fecha(e)).slice(0,7); (porMes[m] = porMes[m] || []).push(e); });
+  try{
+    for(const [m, arr] of Object.entries(porMes)){
+      const key = `${baseKey}-${m}`;
+      const prev = await leerLista(key);
+      const ids = new Set(prev.map(x=>x && x.id).filter(Boolean));
+      arr.forEach(x=>{ if(!x.id || !ids.has(x.id)) prev.push(x); });
+      await db.collection(FIRESTORE_COLLECTION).doc(key).set({ value: JSON.stringify(prev), updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+  }catch(e){
+    console.error('No se pudo mover lo antiguo de', baseKey, e);
+    return list;
+  }
+  const movidos = new Set(viejos);
+  return list.filter(e=>!movidos.has(e));
+}
+
+// desde (Date, opcional): si es anterior al límite, añade también los meses guardados aparte.
+async function loadStockHistory(desde){
+  const entries = await leerLista(STOCK_HISTORY_KEY);
+  if(desde && desde.getTime() < histLimite()){
+    const meses = mesesDesde(desde);
+    const extra = await Promise.all(meses.map(m=>leerLista(`${STOCK_HISTORY_KEY}-${m}`)));
+    const ids = new Set(entries.map(e=>e.id));
+    extra.flat().forEach(e=>{ if(!e.id || !ids.has(e.id)) entries.push(e); });
+  }
+  return entries;
 }
 async function saveStockHistory(entries){
   try{
+    entries = await rotarAntiguos(STOCK_HISTORY_KEY, entries, e=>e.date);
     await window.storage.set(STOCK_HISTORY_KEY, JSON.stringify(entries), true);
   }catch(e){
     console.error('No se pudo guardar el historico de stock', e);
@@ -1604,6 +1648,7 @@ async function loadArchivedOrders(){
 }
 async function saveArchivedOrders(list){
   try{
+    list = await rotarAntiguos(ARCHIVED_ORDERS_KEY, list, o=>o.archivedAt || o.createdAt);
     await window.storage.set(ARCHIVED_ORDERS_KEY, JSON.stringify(list), true);
   }catch(e){
     console.error('No se pudo guardar el registro de pedidos archivados', e);
@@ -2175,7 +2220,7 @@ document.getElementById('historyTypeFilter').addEventListener('change', ()=>{
 
 // ---- Imprimir historico completo de entradas de stock ----
 document.getElementById('printHistoryBtn').addEventListener('click', async ()=>{
-  const entries = await loadStockHistory();
+  const entries = await loadStockHistory(new Date(2026, 0, 1));   // completo: incluye los meses guardados aparte
   entries.sort((a,b)=> new Date(a.date) - new Date(b.date)); // cronologico para el PDF
 
   if(entries.length===0){
@@ -2293,7 +2338,7 @@ function initRestockDates(){
 }
 
 async function computeRestockList(fromStr, toStr){
-  const entries = await loadStockHistory();
+  const entries = await loadStockHistory(new Date(fromStr + 'T00:00:00'));
   // incluye todo el dia "hasta" (23:59:59)
   const from = new Date(fromStr + 'T00:00:00');
   const to = new Date(toStr + 'T23:59:59');
@@ -3320,26 +3365,48 @@ async function confirmDelivery(order, btn, msg){
     const fresh = await loadPendingOrders();
     if(!fresh.some(x=>x.id===order.id)){ msg.textContent = 'Este pedido ya lo confirmó otro dispositivo.'; renderWarehouseList(); return; }
     btn.textContent = 'Descontando...';
-    for(const item of order.items){
+    const persona = order.person + (order.urgente ? ' (urgente)' : '');
+    const lineas = [];
+    order.items.forEach(item=>{
       const qty = itemDelivered(item);
       item.deliveredQty = qty;
       if(order.urgente) item.requested = qty;
-      if(qty<=0) continue;
       const prod = PRODUCTS.find(p=>p.name===item.name);
-      if(!prod) continue;
-      const newStock = await fsIncrementProductStock(prod.name, -qty);
-      const resolved = (newStock!=null) ? newStock : ((prod.stock||0) - qty);
-      prod.stock = resolved;
-      await addStockHistoryEntry({
-        type:'salida', product:prod.name, qty, previousStock: resolved + qty, newStock: resolved,
-        method: item.scan>0 ? 'entrega-mixta' : 'entrega',
-        person: order.person + (order.urgente ? ' (urgente)' : '')
-      });
+      if(qty>0 && prod) lineas.push({ item, qty, prod });
+    });
+    // 1) Todas las restas a la vez, en un solo envío (atómico)
+    let nuevos = null;
+    if(db && lineas.length){
+      const refs = lineas.map(l=>db.collection(PRODUCTS_COLLECTION).doc(productDocId(l.prod.name)));
+      const batch = db.batch();
+      refs.forEach((ref, i)=>batch.set(ref, { stock: firebase.firestore.FieldValue.increment(-lineas[i].qty) }, { merge:true }));
+      try{
+        await batch.commit();
+        const snaps = await Promise.all(refs.map(r=>r.get()));
+        nuevos = snaps.map(sn=>sn.exists ? sn.data().stock : null);
+      }catch(e){
+        console.error('Error descontando el pedido', e);
+        msg.textContent = 'No se pudo descontar (¿sin conexión?). No se ha cambiado nada: prueba otra vez.';
+        return;
+      }
+    }else{
+      nuevos = [];
+      for(const l of lineas) nuevos.push(await fsIncrementProductStock(l.prod.name, -l.qty));
     }
+    const ahora = new Date().toISOString();
+    const movimientos = lineas.map((l, i)=>{
+      const resolved = (nuevos[i]!=null) ? nuevos[i] : ((l.prod.stock||0) - l.qty);
+      l.prod.stock = resolved;
+      return { id:`${Date.now()}-${Math.random().toString(36).slice(2,8)}`, date: ahora,
+               type:'salida', product:l.prod.name, qty:l.qty, previousStock: resolved + l.qty, newStock: resolved,
+               method: l.item.scan>0 ? 'entrega-mixta' : 'entrega', person: persona };
+    });
     renderProducts();
-    await addArchivedOrder({ ...order, entregadoEn: new Date().toISOString() });
-    const after = await loadPendingOrders();
-    await savePendingOrders(after.filter(x=>x.id!==order.id));
+    // 2) Histórico, archivo y cola de pendientes: una sola escritura de cada uno, en paralelo
+    const pendientes = loadPendingOrders().then(after=>savePendingOrders(after.filter(x=>x.id!==order.id)));
+    const historial = movimientos.length ? loadStockHistory().then(h=>{ h.push(...movimientos); return saveStockHistory(h); }) : Promise.resolve();
+    const archivo = addArchivedOrder({ ...order, entregadoEn: ahora });
+    await Promise.all([pendientes, historial, archivo]);
     delete pendingPhotos[order.id];
     warehouseNote.textContent = `Pedido de ${order.person} entregado: ${total} uds descontadas.`;
     renderWarehouseList();
